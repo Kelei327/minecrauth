@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" fill="none" role="img" aria-label="minecrauth - self-hosted authentication for Minecraft Java Edition">
+  <!-- Panel background with hard Minecraft-style bevel (no blur, square corners) -->
+  <rect width="1280" height="640" fill="#0e0e0e"/>
+  <rect x="8" y="8" width="1264" height="624" fill="#1a1a1a"/>
+  <!-- top/left light bevel -->
+  <path d="M8 8 H1272 V22 H22 V632 H8 Z" fill="#3d3d3d"/>
+  <!-- bottom/right dark bevel -->
+  <path d="M1272 8 V632 H8 V618 H1258 V22 H1272 Z" fill="#000000"/>
+
+  <!-- Grass-block logo (original 28px artwork), centered, scaled 8x -->
+  <g transform="translate(528 132) scale(8.0)">
+    <!-- Top face (grass) -->
+    <polygon points="14,1 27,7 14,13 1,7" fill="#70b237"/>
+    <polygon points="14,3 24,7 14,11 4,7" fill="#5b8731"/>
+    <rect x="13" y="5" width="2" height="2" fill="#3e5c20"/>
+    <rect x="8" y="6" width="2" height="1" fill="#3e5c20"/>
+    <rect x="18" y="6" width="2" height="1" fill="#3e5c20"/>
+    <!-- Left face (dirt) -->
+    <polygon points="1,7 14,13 14,27 1,21" fill="#7a543a"/>
+    <polygon points="1,7 14,13 14,17 9,15 6,16 1,10" fill="#5b8731"/>
+    <polygon points="1,7 14,13 14,15 10,13 5,14 1,9" fill="#70b237"/>
+    <rect x="4" y="18" width="2" height="2" fill="#5a3d2b"/>
+    <rect x="9" y="20" width="2" height="2" fill="#5a3d2b"/>
+    <rect x="11" y="16" width="1" height="2" fill="#3e5c20"/>
+    <!-- Right face (dark dirt) -->
+    <polygon points="14,13 27,7 27,21 14,27" fill="#5a3d2b"/>
+    <polygon points="14,13 27,7 27,10 22,12 18,11 14,17" fill="#3e5c20"/>
+    <polygon points="14,13 27,7 27,9 23,10 19,10 14,15" fill="#5b8731"/>
+    <rect x="17" y="19" width="2" height="2" fill="#3c261b"/>
+    <rect x="22" y="16" width="2" height="2" fill="#3c261b"/>
+    <rect x="15" y="22" width="2" height="1" fill="#3c261b"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="640" y="450" text-anchor="middle" font-family="'Courier New',ui-monospace,Menlo,Consolas,monospace" font-size="104" font-weight="700" letter-spacing="2" fill="#e9e9e9">minecrauth</text>
+
+  <!-- gold accent rule under the wordmark -->
+  <rect x="390" y="486" width="500" height="4" fill="#c8a032"/>
+
+  <!-- Slogan -->
+  <text x="640" y="548" text-anchor="middle" font-family="ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="32" fill="#9a9a9a">Self-hosted authentication for Minecraft: Java Edition</text>
+</svg>
