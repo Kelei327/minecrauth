@@ -13,6 +13,7 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -1844,5 +1845,117 @@ func TestGamePasswordIntegration(t *testing.T) {
 	if respCleared.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(respCleared.Body)
 		t.Fatalf("expected 200 after clearing game password, got %d. Body: %s", respCleared.StatusCode, body)
+	}
+}
+
+// TestGameTextureUploadAndDelete is the Phase 3.1 canary for the authlib-injector game
+// texture API: it verifies Bearer-gated PUT upload (401 without token, 204 with token and
+// the skin actually set) and DELETE clearing. It fails if auth is dropped or the texture
+// is not persisted.
+func TestGameTextureUploadAndDelete(t *testing.T) {
+	cfg := defaultTestConfig()
+	ts, svc, _ := newTestStack(t, cfg)
+	ctx := context.Background()
+
+	user, err := svc.AdminCreateUser(ctx, "texgame@example.com", "AccountPass123", false)
+	if err != nil {
+		t.Fatalf("setup user: %v", err)
+	}
+	if _, err := svc.CreatePlayer(ctx, user.ID, "TexPlayer", ""); err != nil {
+		t.Fatalf("setup player: %v", err)
+	}
+
+	// Authenticate via Yggdrasil to obtain an accessToken and the undashed player UUID.
+	authJSON, _ := json.Marshal(map[string]any{"username": "texgame@example.com", "password": "AccountPass123"})
+	resp, err := http.Post(ts.URL+"/authlib-injector/authserver/authenticate", "application/json", bytes.NewReader(authJSON))
+	if err != nil {
+		t.Fatalf("authenticate: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("authenticate status %d", resp.StatusCode)
+	}
+	var authResp struct {
+		AccessToken       string `json:"accessToken"`
+		AvailableProfiles []struct {
+			ID string `json:"id"`
+		} `json:"availableProfiles"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&authResp); err != nil {
+		t.Fatalf("decode auth: %v", err)
+	}
+	if authResp.AccessToken == "" || len(authResp.AvailableProfiles) == 0 {
+		t.Fatalf("missing accessToken or profiles: %+v", authResp)
+	}
+	accessToken := authResp.AccessToken
+	uuid := authResp.AvailableProfiles[0].ID
+	url := ts.URL + "/authlib-injector/api/user/profile/" + uuid + "/skin"
+
+	// Build a multipart skin upload (valid 64x64 PNG, model=slim).
+	buildBody := func() (*bytes.Buffer, string) {
+		var body bytes.Buffer
+		mw := multipart.NewWriter(&body)
+		_ = mw.WriteField("model", "slim")
+		fw, _ := mw.CreateFormFile("file", "skin.png")
+		_, _ = fw.Write(generateTestPNG(t, 64, 64))
+		_ = mw.Close()
+		return &body, mw.FormDataContentType()
+	}
+
+	// 1. Without Bearer -> 401.
+	body1, ct1 := buildBody()
+	reqNoAuth, _ := http.NewRequest(http.MethodPut, url, body1)
+	reqNoAuth.Header.Set("Content-Type", ct1)
+	respNoAuth, err := http.DefaultClient.Do(reqNoAuth)
+	if err != nil {
+		t.Fatalf("PUT no-auth: %v", err)
+	}
+	respNoAuth.Body.Close()
+	if respNoAuth.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401 without Bearer, got %d", respNoAuth.StatusCode)
+	}
+
+	// 2. With Bearer -> 204 and the skin is set.
+	body2, ct2 := buildBody()
+	req, _ := http.NewRequest(http.MethodPut, url, body2)
+	req.Header.Set("Content-Type", ct2)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	resp2, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("PUT skin: %v", err)
+	}
+	defer resp2.Body.Close()
+	if resp2.StatusCode != http.StatusNoContent {
+		b, _ := io.ReadAll(resp2.Body)
+		t.Fatalf("expected 204 uploading skin, got %d. Body: %s", resp2.StatusCode, b)
+	}
+	player, err := svc.GetPlayerByName(ctx, "TexPlayer")
+	if err != nil {
+		t.Fatalf("get player: %v", err)
+	}
+	if player.SkinHash == nil || *player.SkinHash == "" {
+		t.Fatal("expected skin hash to be set after upload (canary)")
+	}
+	if player.SkinModel == nil || *player.SkinModel != "slim" {
+		t.Fatalf("expected slim model, got %v", player.SkinModel)
+	}
+
+	// 3. DELETE -> 204 and the skin is cleared.
+	reqDel, _ := http.NewRequest(http.MethodDelete, url, nil)
+	reqDel.Header.Set("Authorization", "Bearer "+accessToken)
+	respDel, err := http.DefaultClient.Do(reqDel)
+	if err != nil {
+		t.Fatalf("DELETE skin: %v", err)
+	}
+	defer respDel.Body.Close()
+	if respDel.StatusCode != http.StatusNoContent {
+		t.Fatalf("expected 204 deleting skin, got %d", respDel.StatusCode)
+	}
+	cleared, err := svc.GetPlayerByName(ctx, "TexPlayer")
+	if err != nil {
+		t.Fatalf("get player after delete: %v", err)
+	}
+	if cleared.SkinHash != nil && *cleared.SkinHash != "" {
+		t.Fatal("expected skin cleared after DELETE (canary)")
 	}
 }

@@ -104,6 +104,20 @@ func (s *TokenService) Validate(ctx context.Context, accessToken, clientToken st
 	return nil
 }
 
+// Lookup validates that accessToken exists and has not expired, returning the token so
+// Bearer-authenticated callers can read its owning user and bound profile. It mirrors
+// Validate's checks and returns ErrTokenInvalid or ErrTokenExpired.
+func (s *TokenService) Lookup(ctx context.Context, accessToken string) (*store.YggdrasilToken, error) {
+	tok, err := s.store.GetToken(ctx, accessToken)
+	if err != nil {
+		return nil, ErrTokenInvalid
+	}
+	if tok.ExpiresAt != nil && !s.clock().Before(*tok.ExpiresAt) {
+		return nil, ErrTokenExpired
+	}
+	return tok, nil
+}
+
 // Refresh validates the existing token pair, deletes the old access token, and issues
 // a new one preserving the original clientToken and userID. This is the Yggdrasil token
 // rotation endpoint. Returns ErrTokenInvalid or ErrTokenExpired if the pair cannot be

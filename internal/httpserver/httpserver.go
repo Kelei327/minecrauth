@@ -179,6 +179,13 @@ func buildRootHandler(cfg *config.Config, deps Deps, ls *limiterStore) http.Hand
 		mux.HandleFunc("GET /oauth/callback", mh.handleOAuthCallback)
 	}
 
+	// authlib-injector game texture API: Bearer-authenticated PUT/DELETE, mounted under the
+	// Yggdrasil prefix. These method+full-path patterns are more specific than the prefix
+	// handler registered above, so Go's ServeMux routes matching requests here.
+	gameTexPattern := cfg.YggdrasilPrefix + "/api/user/profile/{uuid}/{textureType}"
+	mux.HandleFunc("PUT "+gameTexPattern, mh.handleGameUploadTexture)
+	mux.HandleFunc("DELETE "+gameTexPattern, mh.handleGameDeleteTexture)
+
 	// Public API: StripPrefix reveals the sub-mux patterns (/register, /me, /me/players, ...).
 	mux.Handle(cfg.ApiPrefix+"/", http.StripPrefix(cfg.ApiPrefix, mh.buildAPIMux()))
 
