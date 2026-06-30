@@ -1,3 +1,4 @@
+// Copyright 2025 - Alby Hernández and the minecrauth contributors
 // SPDX-License-Identifier: Apache-2.0
 
 // Package httpserver: web.go contains the browser Web UI API handlers.

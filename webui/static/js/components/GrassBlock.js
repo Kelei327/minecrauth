@@ -1,3 +1,4 @@
+// Copyright 2025 - Alby Hernández and the minecrauth contributors
 // SPDX-License-Identifier: Apache-2.0
 
 // GrassBlock renders the minecrauth grass-block logo. The artwork lives in a

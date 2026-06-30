@@ -1,3 +1,4 @@
+// Copyright 2025 - Alby Hernández and the minecrauth contributors
 // SPDX-License-Identifier: Apache-2.0
 
 // Package mailer defines the email delivery abstraction and its implementations.

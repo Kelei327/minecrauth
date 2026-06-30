@@ -1,3 +1,4 @@
+// Copyright 2025 - Alby Hernández and the minecrauth contributors
 // SPDX-License-Identifier: Apache-2.0
 
 // Package logging provides utilities for setting up the application's slog logger.

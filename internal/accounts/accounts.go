@@ -1,3 +1,4 @@
+// Copyright 2025 - Alby Hernández and the minecrauth contributors
 // SPDX-License-Identifier: Apache-2.0
 
 // Package accounts manages user and player domain logic, credentials, and relations.
