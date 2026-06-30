@@ -61,7 +61,7 @@ func newWebTestStack(t *testing.T, cfg *config.Config) (*webStack, *http.Client)
 		UUIDGeneration:    cfg.UUIDGeneration,
 	})
 
-	yggH := yggdrasil.NewHandler(tokenSvc, authn, svc, km, cfg.ServerName, cfg.Domain, cfg.BaseURL, nil, false, false)
+	yggH := yggdrasil.NewHandler(tokenSvc, authn, svc, km, cfg.ServerName, cfg.Domain, cfg.BaseURL, nil, false, false, true, true)
 
 	textureDir := t.TempDir()
 	textureSt, err := textures.New(textureDir)

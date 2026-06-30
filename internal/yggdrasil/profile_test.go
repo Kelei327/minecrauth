@@ -60,7 +60,7 @@ func TestBuildProfileNoTextures(t *testing.T) {
 	km := newProfileTestKM(t)
 	p := makePlayer("Steve", "550e8400-e29b-41d4-a716-446655440000", nil, nil, nil)
 
-	profile, err := buildProfile(p, km, false, "http://auth.example.com")
+	profile, err := buildProfile(p, km, false, "http://auth.example.com", "")
 	if err != nil {
 		t.Fatalf("buildProfile: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestBuildProfileClassicSkin(t *testing.T) {
 	skinModel := "classic"
 	p := makePlayer("Steve", "550e8400-e29b-41d4-a716-446655440000", &skinHash, &skinModel, nil)
 
-	profile, err := buildProfile(p, km, false, "http://auth.example.com")
+	profile, err := buildProfile(p, km, false, "http://auth.example.com", "")
 	if err != nil {
 		t.Fatalf("buildProfile: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestBuildProfileSlimSkin(t *testing.T) {
 	skinModel := "slim"
 	p := makePlayer("Alex", "12345678-1234-1234-1234-123456789abc", &skinHash, &skinModel, nil)
 
-	profile, err := buildProfile(p, km, false, "https://mc.example.com")
+	profile, err := buildProfile(p, km, false, "https://mc.example.com", "")
 	if err != nil {
 		t.Fatalf("buildProfile: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestBuildProfileCape(t *testing.T) {
 	capeHash := "c0ffee00c0ffee00"
 	p := makePlayer("Alex", "12345678-1234-1234-1234-123456789abc", nil, nil, &capeHash)
 
-	profile, err := buildProfile(p, km, false, "https://mc.example.com")
+	profile, err := buildProfile(p, km, false, "https://mc.example.com", "")
 	if err != nil {
 		t.Fatalf("buildProfile: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestBuildProfileSignatureVerifies(t *testing.T) {
 	skinModel := "slim"
 	p := makePlayer("Canary", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", &skinHash, &skinModel, nil)
 
-	profile, err := buildProfile(p, km, true, "https://auth.test.com")
+	profile, err := buildProfile(p, km, true, "https://auth.test.com", "")
 	if err != nil {
 		t.Fatalf("buildProfile signed: %v", err)
 	}
@@ -234,7 +234,7 @@ func TestBuildProfileUnsignedHasNoSignature(t *testing.T) {
 	km := newProfileTestKM(t)
 	p := makePlayer("Steve", "550e8400-e29b-41d4-a716-446655440000", nil, nil, nil)
 
-	profile, err := buildProfile(p, km, false, "http://auth.example.com")
+	profile, err := buildProfile(p, km, false, "http://auth.example.com", "")
 	if err != nil {
 		t.Fatalf("buildProfile unsigned: %v", err)
 	}
@@ -260,4 +260,60 @@ func decodeTextures(t *testing.T, value string) map[string]any {
 		t.Fatalf("unmarshaling texture payload: %v", err)
 	}
 	return payload.Textures
+}
+
+// TestBuildProfileUploadableTextures is the Phase 1A canary: it verifies that the
+// uploadableTextures property is appended with the correct comma-separated value
+// per the allow-skins/allow-capes flags, that it is unsigned, and that it is omitted
+// entirely when neither is allowed. A regression that drops or mis-orders the value
+// must make this test fail.
+func TestBuildProfileUploadableTextures(t *testing.T) {
+	km := newProfileTestKM(t)
+	p := makePlayer("Steve", "550e8400-e29b-41d4-a716-446655440000", nil, nil, nil)
+
+	cases := []struct {
+		name       string
+		uploadable string
+		wantValue  string
+		wantProp   bool
+	}{
+		{"both", uploadableTexturesValue(true, true), "skin,cape", true},
+		{"skin only", uploadableTexturesValue(true, false), "skin", true},
+		{"cape only", uploadableTexturesValue(false, true), "cape", true},
+		{"none", uploadableTexturesValue(false, false), "", false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			profile, err := buildProfile(p, km, false, "http://auth.example.com", tc.uploadable)
+			if err != nil {
+				t.Fatalf("buildProfile: %v", err)
+			}
+			// The textures property must always remain first.
+			if profile.Properties[0].Name != "textures" {
+				t.Fatalf("Properties[0].Name = %q; want textures", profile.Properties[0].Name)
+			}
+			var found *TextureProperty
+			for i := range profile.Properties {
+				if profile.Properties[i].Name == "uploadableTextures" {
+					found = &profile.Properties[i]
+				}
+			}
+			if !tc.wantProp {
+				if found != nil {
+					t.Fatalf("expected no uploadableTextures property, got value %q", found.Value)
+				}
+				return
+			}
+			if found == nil {
+				t.Fatal("expected uploadableTextures property, none found")
+			}
+			if found.Value != tc.wantValue {
+				t.Errorf("uploadableTextures value = %q; want %q", found.Value, tc.wantValue)
+			}
+			if found.Signature != "" {
+				t.Errorf("uploadableTextures must be unsigned, got signature %q", found.Signature)
+			}
+		})
+	}
 }

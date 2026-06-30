@@ -122,7 +122,7 @@ func newTestStackWithMailer(t *testing.T, cfg *config.Config, ml mailer.Mailer) 
 	})
 
 	// 4. Yggdrasil protocol handler (no fallback in tests).
-	yggH := yggdrasil.NewHandler(tokenSvc, gameAuthn, svc, km, cfg.ServerName, cfg.Domain, cfg.BaseURL, nil, false, false)
+	yggH := yggdrasil.NewHandler(tokenSvc, gameAuthn, svc, km, cfg.ServerName, cfg.Domain, cfg.BaseURL, nil, false, false, true, true)
 
 	// 5. Texture store (temp dir; each test gets its own isolated store).
 	textureDir := t.TempDir()

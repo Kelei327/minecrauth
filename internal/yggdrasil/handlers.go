@@ -28,6 +28,8 @@ type Handler struct {
 	fallback     *fallback.Client // nil when fallback is not configured
 	forwardSkins bool             // inject fallback skin when local player has none
 	offlineSkins bool             // resolve offline UUIDs to local players
+	allowSkins   bool             // advertise skin upload capability in profiles
+	allowCapes   bool             // advertise cape upload capability in profiles
 }
 
 // NewHandler constructs a ready-to-use Handler. serverName is the human-readable name
@@ -49,6 +51,8 @@ func NewHandler(
 	fb *fallback.Client,
 	forwardSkins bool,
 	offlineSkins bool,
+	allowSkins bool,
+	allowCapes bool,
 ) *Handler {
 	return &Handler{
 		tokens:       tokens,
@@ -62,6 +66,8 @@ func NewHandler(
 		fallback:     fb,
 		forwardSkins: forwardSkins,
 		offlineSkins: offlineSkins,
+		allowSkins:   allowSkins,
+		allowCapes:   allowCapes,
 	}
 }
 
@@ -599,7 +605,7 @@ func (h *Handler) writeLocalProfile(ctx context.Context, w http.ResponseWriter, 
 		}
 	}
 
-	profile, err := buildProfile(player, h.keys, signed, h.baseURL)
+	profile, err := buildProfile(player, h.keys, signed, h.baseURL, uploadableTexturesValue(h.allowSkins, h.allowCapes))
 	if err != nil {
 		slog.Error("writeLocalProfile: building profile", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)

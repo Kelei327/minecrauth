@@ -232,7 +232,7 @@ func main() {
 
 	gameAuthn := auth.NewGameAuthenticator(st)
 	yggH := yggdrasil.NewHandler(tokenSvc, gameAuthn, svc, km, cfg.ServerName, cfg.Domain, cfg.BaseURL,
-		fbClient, cfg.ForwardSkins, cfg.OfflineSkins)
+		fbClient, cfg.ForwardSkins, cfg.OfflineSkins, cfg.AllowSkins, cfg.AllowCapes)
 
 	// Browser session manager for the Vue Web UI.
 	sessionTTL := time.Duration(cfg.SessionTTLSeconds) * time.Second

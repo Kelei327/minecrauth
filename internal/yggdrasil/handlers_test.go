@@ -88,7 +88,7 @@ func newTestEnv(t *testing.T) *testEnv {
 	tokens := auth.NewTokenService(st, 0, nil) // TTL 0 = never expires
 	km := newTestKeyManager(t)
 
-	h := NewHandler(tokens, authn, svc, km, "TestServer", "example.com", "http://example.com", nil, false, false)
+	h := NewHandler(tokens, authn, svc, km, "TestServer", "example.com", "http://example.com", nil, false, false, true, true)
 	return &testEnv{handler: h.Routes(), accounts: svc, tokens: tokens}
 }
 
@@ -986,7 +986,7 @@ func newTestEnvWithFallback(t *testing.T, srv *httptest.Server, denyUnknownUsers
 	})
 
 	h := NewHandler(tokens, authn, svc, km, "TestServer", "example.com", "http://example.com",
-		fb, false, false)
+		fb, false, false, true, true)
 	return &testEnv{handler: h.Routes(), accounts: svc, tokens: tokens}
 }
 
@@ -1151,7 +1151,7 @@ func TestOfflineSkinsByUUID(t *testing.T) {
 
 	// offlineSkins=true, no fallback.
 	h := NewHandler(tokens, authn, svc, km, "TestServer", "example.com", "http://example.com",
-		nil, false, true)
+		nil, false, true, true, true)
 	env := &testEnv{handler: h.Routes(), accounts: svc, tokens: tokens}
 
 	const playerName = "OfflinePlyr"
@@ -1258,7 +1258,7 @@ func TestForwardSkinsInjectsProperties(t *testing.T) {
 	// We use a chosen UUID matching fallbackKnownProfile.ID so the fake server returns it.
 	chosenDashed := redash(fallbackKnownProfile.ID)
 	h := NewHandler(tokens, authn, svc, km, "TestServer", "example.com", "http://example.com",
-		fb, true /* forwardSkins */, false)
+		fb, true /* forwardSkins */, false, true, true)
 	env := &testEnv{handler: h.Routes(), accounts: svc, tokens: tokens}
 
 	ctx := context.Background()

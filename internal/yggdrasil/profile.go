@@ -51,11 +51,26 @@ type rawFullProfile struct {
 	Properties []json.RawMessage `json:"properties"`
 }
 
+// uploadableTexturesValue returns the comma-separated list of texture types the
+// server permits uploading, in the order "skin","cape". It returns an empty
+// string when no texture type is allowed, in which case the uploadableTextures
+// profile property must be omitted entirely.
+func uploadableTexturesValue(allowSkins, allowCapes bool) string {
+	var types []string
+	if allowSkins {
+		types = append(types, "skin")
+	}
+	if allowCapes {
+		types = append(types, "cape")
+	}
+	return strings.Join(types, ",")
+}
+
 // buildProfile constructs a FullProfile for the given player.
 // baseURL is the external root URL (e.g. "https://auth.example.com") and is used to
 // form texture URLs. When signed is true the textures property carries an RSA SHA1
 // signature produced by km.SignProperty; when false the signature field is omitted.
-func buildProfile(p *store.Player, km *signing.KeyManager, signed bool, baseURL string) (FullProfile, error) {
+func buildProfile(p *store.Player, km *signing.KeyManager, signed bool, baseURL string, uploadable string) (FullProfile, error) {
 	undashed := undash(p.UUID)
 
 	texMap := buildTexturesMap(p, baseURL)
@@ -89,10 +104,17 @@ func buildProfile(p *store.Player, km *signing.KeyManager, signed bool, baseURL 
 		prop.Signature = sig
 	}
 
+	props := []TextureProperty{prop}
+	if uploadable != "" {
+		props = append(props, TextureProperty{
+			Name:  "uploadableTextures",
+			Value: uploadable,
+		})
+	}
 	return FullProfile{
 		ID:         undashed,
 		Name:       p.Name,
-		Properties: []TextureProperty{prop},
+		Properties: props,
 	}, nil
 }
 
