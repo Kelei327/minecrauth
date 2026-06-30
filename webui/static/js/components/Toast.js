@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 const { ref } = window.Vue;
 
 export const toasts = ref([]);

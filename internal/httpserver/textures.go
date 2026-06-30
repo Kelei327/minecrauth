@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package httpserver: this file contains the skin and cape texture upload,
 // URL-fetch, and delete handlers for the management API.
 package httpserver

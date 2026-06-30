@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 const { ref, computed, onMounted } = window.Vue;
 import { store } from '../store.js';
 import { navigate } from '../router.js';

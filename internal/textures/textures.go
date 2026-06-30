@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package textures implements content-addressed storage for Minecraft skin and cape PNG files.
 // Files are stored as <dir>/<sha256-hex>.png and deduplicated by hash.
 package textures

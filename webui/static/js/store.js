@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 const { reactive } = window.Vue;
 
 export const store = reactive({

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package mailer defines the email delivery abstraction and its implementations.
 package mailer
 

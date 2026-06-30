@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package sqlite implements the store interface using pure Go SQLite.
 package sqlite
 

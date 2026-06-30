@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package httpserver
 
 // RegisterRequest defines the JSON body for self-service registration.

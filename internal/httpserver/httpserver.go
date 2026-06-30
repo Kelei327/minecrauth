@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package httpserver manages the HTTP server lifecycle, routing, and middleware.
 package httpserver
 

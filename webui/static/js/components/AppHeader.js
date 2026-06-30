@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 import { store } from '../store.js';
 import { currentPath, navigate } from '../router.js';
 import { api } from '../api.js';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 const { ref, onMounted } = window.Vue;
 import { api } from '../api.js';
 import { addToast } from '../components/Toast.js';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package config defines the typed configuration and environment parsing for the application.
 package config
 

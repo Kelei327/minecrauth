@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package signing handles RSA keypair lifecycle and profile property signing for the Yggdrasil protocol.
 package signing
 
