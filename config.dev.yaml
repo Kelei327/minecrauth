@@ -1,0 +1,7 @@
+# Development YAML configuration file for minecrauth
+base_url: "http://localhost:25585"
+listen_addr: "127.0.0.1:25585"
+state_dir: "./data"
+default_admins:
+  - "admin@local"
+log_format: "text"

@@ -1,0 +1,63 @@
+name: CI
+
+# Run on every push to main and on every pull request targeting main.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Lint, Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        # Ref: https://github.com/actions/checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        # Ref: https://github.com/actions/setup-go
+        uses: actions/setup-go@v6
+        with:
+          # Read the Go version from go.mod so the toolchain pin is always in
+          # one place and the CI automatically follows module-level upgrades.
+          go-version-file: go.mod
+
+      - name: Build (CGO_ENABLED=0)
+        # Verify the project cross-compiles cleanly without cgo. This is the
+        # canonical build mode: pure-Go static binary, no C toolchain required.
+        run: CGO_ENABLED=0 go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Format check
+        # Fail if any file is not gofmt-formatted. gofmt is always run without
+        # simplify flags (-s) so the check is consistent with editors that call
+        # plain gofmt. Deviations require a deliberate local reformat.
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "The following files are not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Lint
+        # Ref: https://github.com/golangci/golangci-lint-action
+        uses: golangci/golangci-lint-action@v9
+        with:
+          # version must be a golangci-lint v2.x release to match .golangci.yml
+          # version: "2" config schema.
+          version: latest
+
+      - name: Test
+        # Standard test run (CGO_ENABLED=0 kept consistent with the build).
+        run: CGO_ENABLED=0 go test ./...
+
+      - name: Test with race detector
+        # The race detector requires cgo; this step enables it explicitly so the
+        # main build remains cgo-free while data races are still caught in CI.
+        run: CGO_ENABLED=1 go test -race ./...

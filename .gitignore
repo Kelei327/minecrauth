@@ -1,0 +1,37 @@
+# Binaries
+bin/
+# Stray binaries built at the repo root (e.g. `go build -o minecrauth`, `go test -c`).
+/minecrauth
+*.test
+
+# GoReleaser build output
+dist/
+# Per-platform binary directories created by builds hooks for the TARGETPLATFORM
+# Dockerfile pattern. Created at release time; never committed.
+/linux/
+
+# State directory
+data/
+
+# Local demo runtime (state + config), never committed
+demo-data/
+demo-config.yaml
+demo-server.log
+
+# SQLite databases
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Test and coverage artifacts
+*.out
+*.prof
+
+# OS files
+.DS_Store
+
+# IDE and editors
+.idea/
+.vscode/
+*.swp

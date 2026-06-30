@@ -1,0 +1,30 @@
+# Ref: https://golangci-lint.run/usage/configuration/
+# golangci-lint v2 configuration schema (requires golangci-lint >= 2.0.0).
+version: "2"
+
+linters:
+  # Explicitly list the linters that are active. This keeps CI behaviour
+  # predictable regardless of changes to golangci-lint's default set.
+  enable:
+    - errcheck     # check for unhandled errors
+    - govet        # run go vet (shadow, printf format, etc.)
+    - ineffassign  # detect assignments whose result is never read
+    - staticcheck  # SA/S/ST/QF static analysis checks
+
+  settings:
+    errcheck:
+      # Ref: https://golangci-lint.run/usage/linters/#errcheck
+      # fmt.Fprintf/Fprintln to stderr/stdout in CLI output paths conventionally
+      # leave the error unchecked; suppress those specific functions.
+      exclude-functions:
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Fprint
+
+  exclusions:
+    rules:
+      # Test files frequently call functions just for side-effects and omit
+      # error-return checks intentionally (table-driven helpers, t.Fatal paths).
+      - path: _test\.go
+        linters:
+          - errcheck

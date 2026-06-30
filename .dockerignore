@@ -1,0 +1,36 @@
+# This .dockerignore is effective when running `docker build .` manually.
+# GoReleaser constructs its own minimal build context (Dockerfile + the per-platform
+# binary directories created by the builds hooks), so most of these exclusions are
+# only relevant for local manual builds.
+
+# Version control
+.git/
+.github/
+.agents/
+
+# Go source and module files (not needed inside the image)
+cmd/
+internal/
+go.mod
+go.sum
+
+# Build outputs other than the GoReleaser-organized linux/ directories
+bin/
+dist/
+
+# Runtime state; never belongs in an image
+data/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Config and tooling files
+Makefile
+.gitignore
+.golangci.yml
+.goreleaser.yaml
+
+# Documentation (added to archives separately, not to the image)
+*.md
+LICENSE

@@ -1,0 +1,101 @@
+name: Release
+
+# Two triggers, one build chain:
+#
+#   1. release: published  fires automatically when a GitHub Release is published.
+#      The tag is already on HEAD, so GoReleaser derives the version from it and
+#      runs in full mode. Binaries are attached to the Release; multi-arch images
+#      are pushed to GHCR.
+#
+#   2. workflow_dispatch    a human runs it manually with two inputs:
+#        - version:  the semver tag to release under, e.g. v1.2.3. Whatever is
+#                    built is published to the Release named by this version, and
+#                    images are tagged with it.
+#        - from_tag: true  -> check out the `version` tag and release that commit.
+#                    false -> check out the main branch and release its HEAD,
+#                             still published under `version`.
+#
+# Both paths run `make release`, the same target a maintainer would run locally,
+# so the chain from checkout to published artifacts is identical and auditable.
+# Ref: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onworkflow_dispatchinputs
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Semver tag to release under (e.g. v1.2.3). Artifacts publish to this Release."
+        required: true
+        type: string
+      from_tag:
+        description: "Check out the version tag (true) or the main branch (false)."
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # create/update GitHub Releases and upload assets
+  packages: write   # push images to GHCR
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        # Ref: https://github.com/actions/checkout
+        uses: actions/checkout@v6
+        with:
+          # fetch-depth: 0 is required by GoReleaser to walk the full git history
+          # for changelog generation and tag discovery.
+          fetch-depth: 0
+          # release event: empty string keeps the default checkout (the tag commit).
+          # workflow_dispatch: from_tag=true checks out the version tag; otherwise
+          # the main branch HEAD.
+          ref: ${{ github.event_name == 'workflow_dispatch' && (inputs.from_tag && inputs.version || 'main') || '' }}
+
+      - name: Set up Go
+        # Ref: https://github.com/actions/setup-go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Set up QEMU
+        # Cross-platform emulation so the arm64 image can be built on the amd64 runner.
+        # Ref: https://github.com/docker/setup-qemu-action
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        # Buildx backs the multi-arch image build that GoReleaser's dockers_v2 runs.
+        # Ref: https://github.com/docker/setup-buildx-action
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GHCR
+        # Ref: https://github.com/docker/login-action
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install pinned tools
+        # Installs the project's pinned goreleaser + syft (and the rest) into ./bin,
+        # the same toolchain `make release` uses, so CI matches local builds.
+        run: make bootstrap
+
+      - name: Release (published tag)
+        # The tag is on HEAD; GoReleaser validates and derives the version from it.
+        if: github.event_name == 'release'
+        run: make release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release (manual dispatch)
+        # Publish under the chosen semver. --skip=validate tolerates building from a
+        # branch HEAD that is not itself a clean semver tag; GORELEASER_CURRENT_TAG
+        # (set by the Makefile from VERSION) pins the version that is released.
+        if: github.event_name == 'workflow_dispatch'
+        run: make release VERSION=${{ inputs.version }} GORELEASER_ARGS=--skip=validate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

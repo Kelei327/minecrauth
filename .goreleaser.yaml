@@ -1,0 +1,87 @@
+# Ref: https://goreleaser.com/customization/
+# GoReleaser v2 schema (version: 2 is required).
+#
+# A single binary is produced:
+#   - minecrauth  the Yggdrasil/authlib-injector server (administration is via the HTTP API)
+#
+# Build hooks are not needed: dockers_v2 lays the build context out as
+# linux/<arch>/minecrauth automatically, so the Dockerfile can use ARG TARGETPLATFORM
+# to select the right binary with a single generic COPY instruction, matching Docker
+# Buildx's TARGETPLATFORM value.
+
+version: 2
+
+project_name: minecrauth
+
+builds:
+  - id: minecrauth
+    main: ./cmd/minecrauth
+    binary: minecrauth
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    # Ref: https://goreleaser.com/customization/build/#ldflags-templates
+    # -X flags stamp build metadata into the binary. The variables (Version,
+    # Commit, Date) do not need to exist in main.go yet; the linker silently
+    # ignores missing targets. Add them to main.go to activate stamping.
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.Commit={{.Commit}}
+      - -X main.Date={{.Date}}
+
+archives:
+  - id: default
+    # Include both binaries in every archive.
+    ids:
+      - minecrauth
+    # Ref: https://goreleaser.com/customization/archive/#name-template
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    formats:
+      - tar.gz
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  # Ref: https://goreleaser.com/customization/checksum/
+  name_template: checksums.txt
+  algorithm: sha256
+
+sboms:
+  # Ref: https://goreleaser.com/customization/sbom/
+  # Generates a CycloneDX SBOM for each archive using syft. syft must be
+  # installed in the release environment (see .github/workflows/release.yml).
+  - artifacts: archive
+
+dockers_v2:
+  # Multi-arch image (linux/amd64 + linux/arm64 by default) built with docker buildx,
+  # reusing the binaries produced by the build above. GoReleaser lays the build context
+  # out as linux/<arch>/minecrauth, which the Dockerfile's COPY ${TARGETPLATFORM}/minecrauth
+  # resolves against. This single block replaces the old dockers + docker_manifests pair.
+  # Ref: https://goreleaser.com/customization/dockers_v2/
+  - id: minecrauth
+    ids:
+      - minecrauth
+    dockerfile: Dockerfile
+    images:
+      - "ghcr.io/achetronic/minecrauth"
+    tags:
+      - "{{ .Version }}"
+      - "latest"
+    # OCI annotations on the published manifest. Dynamic fields (version, created,
+    # revision) are stamped at release time from the git context.
+    annotations:
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.description: "Self-hostable Yggdrasil-compatible Minecraft authentication server"
+      org.opencontainers.image.url: "https://github.com/achetronic/minecrauth"
+      org.opencontainers.image.source: "{{ .GitURL }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.licenses: "Apache-2.0"

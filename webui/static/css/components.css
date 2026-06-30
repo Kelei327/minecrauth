@@ -1,0 +1,464 @@
+/* Minecraft-crafted Beveled UI Components */
+
+/* Bevel helpers */
+.bevel-raised {
+    border: 2px solid var(--border);
+    box-shadow: inset 2px 2px 0 var(--bevel-light), inset -2px -2px 0 var(--bevel-dark);
+}
+
+.bevel-inset {
+    border: 2px solid var(--border);
+    box-shadow: inset 2px 2px 0 var(--bevel-dark), inset -2px -2px 0 var(--bevel-light);
+}
+
+/* Panels */
+.panel {
+    background-color: var(--panel);
+    border: 2px solid var(--border);
+    box-shadow: inset 2px 2px 0 var(--bevel-light), inset -2px -2px 0 var(--bevel-dark);
+    padding: var(--s4);
+    margin-bottom: var(--s4);
+}
+
+.panel-2 {
+    background-color: var(--panel-2);
+    border: 2px solid var(--border);
+    box-shadow: inset 2px 2px 0 var(--bevel-light), inset -2px -2px 0 var(--bevel-dark);
+    padding: var(--s3);
+}
+
+/* Header */
+.app-header {
+    background-color: var(--panel);
+    border-bottom: 2px solid var(--border);
+    box-shadow: inset 0 2px 0 var(--bevel-light), inset 0 -2px 0 var(--bevel-dark);
+    padding: var(--s2) var(--s4);
+    margin-bottom: var(--s4);
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: var(--s2) var(--s3);
+    cursor: pointer;
+    border: 2px solid var(--border);
+    background-color: var(--panel-2);
+    color: var(--text);
+    box-shadow: inset 2px 2px 0 var(--bevel-light), inset -2px -2px 0 var(--bevel-dark);
+    user-select: none;
+}
+
+.btn:hover {
+    background-color: #444;
+}
+
+.btn:active, .btn.active {
+    box-shadow: inset 2px 2px 0 var(--bevel-dark), inset -2px -2px 0 var(--bevel-light);
+    transform: translate(1px, 1px);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: inset 2px 2px 0 var(--bevel-light), inset -2px -2px 0 var(--bevel-dark) !important;
+}
+
+/* Primary Button (Grass Green) */
+.btn-primary {
+    background-color: var(--grass);
+    color: #ffffff;
+    --bevel-light: var(--grass-bright);
+    --bevel-dark: var(--grass-dark);
+}
+.btn-primary:hover {
+    background-color: var(--grass-bright);
+}
+
+/* Danger Button (Red) */
+.btn-danger {
+    background-color: var(--danger);
+    color: #ffffff;
+    --bevel-light: var(--danger-bright);
+    --bevel-dark: #600;
+}
+.btn-danger:hover {
+    background-color: var(--danger-bright);
+}
+
+/* Badges */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'PixelFont', monospace;
+    font-size: 8px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 3px 6px;
+    border: 1px solid var(--border);
+    color: #fff;
+    background-color: var(--panel-2);
+    box-shadow: inset 1px 1px 0 var(--bevel-light), inset -1px -1px 0 var(--bevel-dark);
+}
+
+.badge-admin {
+    background-color: var(--gold);
+    --bevel-light: #f39c12;
+    --bevel-dark: #7f5f00;
+}
+
+.badge-blocked {
+    background-color: var(--danger);
+    --bevel-light: var(--danger-bright);
+    --bevel-dark: #600;
+}
+
+.badge-active {
+    background-color: var(--grass);
+    --bevel-light: var(--grass-bright);
+    --bevel-dark: var(--grass-dark);
+}
+
+/* Clickable badge that toggles a value (e.g. skin arm model). */
+.badge-toggle {
+    cursor: pointer;
+    background-color: var(--grass);
+    --bevel-light: var(--grass-bright);
+    --bevel-dark: var(--grass-dark);
+    font-family: 'PixelFont', monospace;
+    line-height: 1;
+}
+
+.badge-toggle:hover {
+    background-color: var(--grass-bright);
+}
+
+.badge-toggle:active {
+    box-shadow: inset 1px 1px 0 var(--bevel-dark), inset -1px -1px 0 var(--bevel-light);
+}
+
+/* Inputs & Form controls */
+.form-group {
+    margin-bottom: var(--s3);
+}
+
+.form-group label {
+    display: block;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-bottom: var(--s1);
+    color: var(--muted);
+}
+
+.input {
+    width: 100%;
+    padding: var(--s2) var(--s3);
+    background-color: var(--bg-2);
+    color: var(--text);
+    border: 2px solid var(--border);
+    font-family: system-ui, sans-serif;
+    font-size: 0.95rem;
+    box-shadow: inset 2px 2px 0 var(--bevel-dark), inset -2px -2px 0 var(--bevel-light);
+}
+
+.input:focus {
+    outline: 2px solid var(--grass);
+    background-color: var(--panel);
+}
+
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: var(--s3);
+    cursor: pointer;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    user-select: none;
+}
+
+.checkbox-container > span:last-child {
+    line-height: 1.2;
+}
+
+.checkbox-container input {
+    display: none;
+}
+
+/* Minecraft-style checkbox: a beveled inset slot that fills with grass when checked. */
+.checkbox-box {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    margin-right: var(--s3);
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    background-color: var(--bg-2);
+    border: 2px solid var(--border);
+    box-shadow: inset 2px 2px 0 var(--bevel-dark), inset -2px -2px 0 var(--bevel-light);
+    color: #fff;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 1;
+}
+
+/* The check glyph is always present so the box keeps identical metrics in both
+   states; it is only made visible when the box is checked. */
+.checkbox-box::after {
+    content: "\2713";
+    visibility: hidden;
+}
+
+.checkbox-container input:checked + .checkbox-box {
+    background-color: var(--grass);
+    box-shadow: inset 2px 2px 0 var(--grass-bright), inset -2px -2px 0 var(--grass-dark);
+}
+
+.checkbox-container input:checked + .checkbox-box::after {
+    visibility: visible;
+}
+
+.checkbox-container input:focus-visible + .checkbox-box {
+    outline: 2px solid var(--grass-bright);
+    outline-offset: 2px;
+}
+
+/* Tables */
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    border: 2px solid var(--border);
+    background-color: var(--panel);
+    box-shadow: inset 2px 2px 0 var(--bevel-light), inset -2px -2px 0 var(--bevel-dark);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.table th {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: var(--muted);
+    background-color: var(--panel-2);
+    padding: var(--s2) var(--s3);
+    border-bottom: 2px solid var(--border);
+}
+
+.table td {
+    padding: var(--s2) var(--s3);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.table tbody tr:nth-child(even) {
+    background-color: var(--bg-2);
+}
+
+/* Impersonation Banner */
+.impersonation-banner {
+    background-color: var(--dirt);
+    border-bottom: 2px solid var(--border);
+    box-shadow: inset 0 2px 0 var(--grass), inset 0 -2px 0 var(--dirt-dark);
+    padding: var(--s2) var(--s4);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.impersonation-banner .banner-text {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-weight: bold;
+}
+
+.impersonation-banner .banner-tag {
+    font-family: "PixelFont", ui-monospace, monospace;
+    font-size: 0.6rem;
+    background-color: var(--gold);
+    color: var(--bg);
+    padding: 3px 6px;
+    margin-right: var(--s2);
+    box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.3), inset -1px -1px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Toast System */
+.toast-container {
+    position: fixed;
+    bottom: var(--s4);
+    right: var(--s4);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+    pointer-events: none;
+}
+
+.toast {
+    pointer-events: auto;
+    background-color: var(--panel-2);
+    border: 2px solid var(--border);
+    box-shadow: inset 2px 2px 0 var(--bevel-light), inset -2px -2px 0 var(--bevel-dark);
+    padding: var(--s3) var(--s4);
+    max-width: 350px;
+    display: flex;
+    align-items: center;
+    gap: var(--s2);
+}
+
+.toast-success {
+    border-left: 6px solid var(--grass);
+}
+
+.toast-danger {
+    border-left: 6px solid var(--danger);
+}
+
+.toast-warning {
+    border-left: 6px solid var(--gold);
+}
+
+/* Modals */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 8888;
+    padding: var(--s4);
+}
+
+.modal {
+    background-color: var(--panel);
+    border: 2px solid var(--border);
+    box-shadow: inset 2px 2px 0 var(--bevel-light), inset -2px -2px 0 var(--bevel-dark);
+    max-width: 500px;
+    width: 100%;
+}
+
+.modal-header {
+    background-color: var(--panel-2);
+    padding: var(--s2) var(--s3);
+    border-bottom: 2px solid var(--border);
+}
+
+.modal-body {
+    padding: var(--s4);
+}
+
+.modal-footer {
+    padding: var(--s2) var(--s3);
+    border-top: 2px solid var(--border);
+    background-color: var(--panel-2);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--s2);
+}
+
+/* Nav links */
+.nav-link {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--muted);
+    padding: var(--s1) var(--s2);
+    border-bottom: 2px solid transparent;
+}
+
+.nav-link:hover {
+    color: var(--text);
+}
+
+.nav-link.active {
+    color: var(--grass-bright);
+    border-bottom: 2px solid var(--grass);
+}
+
+/* Pagination UI */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s2);
+    margin-top: var(--s3);
+}
+
+/* Textures styling */
+.pixelated {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
+.texture-preview {
+    width: 64px;
+    height: 64px;
+    border: 2px solid var(--border);
+    background-color: var(--bg-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 2px 2px 0 var(--bevel-dark), inset -2px -2px 0 var(--bevel-light);
+}
+
+.texture-preview img {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* 3D skin viewer */
+.skin-viewer-3d {
+    width: 100%;
+    border: 2px solid var(--border);
+    background-color: var(--bg-2);
+    box-shadow: inset 2px 2px 0 var(--bevel-dark), inset -2px -2px 0 var(--bevel-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.skin-viewer-3d canvas {
+    display: block;
+}
+
+.skin-viewer-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.skin-viewer-fallback img {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.skin-face {
+    width: 100%;
+    height: 100%;
+}
