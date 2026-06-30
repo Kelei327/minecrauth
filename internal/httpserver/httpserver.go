@@ -123,7 +123,7 @@ func (s *Server) Start(ctx context.Context) error {
 //
 // Middleware chain (outermost -> innermost):
 //
-//	requestLogger -> bodyLimit -> rateLimit(exempt: sessionserver) -> root mux
+//	aliHeader -> requestLogger -> bodyLimit -> rateLimit(exempt: sessionserver) -> root mux
 //
 // Route table (before prefix stripping):
 //
@@ -280,12 +280,18 @@ func buildRootHandler(cfg *config.Config, deps Deps, ls *limiterStore) http.Hand
 		"/metrics",
 	}
 
+	// ALI (API Location Indication): advertise the absolute Yggdrasil API URL on every
+	// response so launchers can discover it from any address this instance serves.
+	aliLocation := cfg.BaseURL + cfg.YggdrasilPrefix + "/"
+
 	// Stack global middleware: log every request, enforce body size, rate-limit
 	// everything except the exempt subtrees.
-	return requestLogger(
-		metricsMiddleware(m)(
-			bodyLimit(cfg.BodyLimitBytes)(
-				rateLimit(ls, rateLimitExempt...)(mux),
+	return aliHeader(aliLocation)(
+		requestLogger(
+			metricsMiddleware(m)(
+				bodyLimit(cfg.BodyLimitBytes)(
+					rateLimit(ls, rateLimitExempt...)(mux),
+				),
 			),
 		),
 	)

@@ -200,6 +200,30 @@ func decodeBody(t *testing.T, r *http.Response, v any) {
 	}
 }
 
+// TestALIHeaderPresent is the Phase 2 canary: it verifies that the ALI (API Location Indication)
+// header is present on responses and has the correct absolute Yggdrasil URL computed from config.
+// It must fail if the ALI header is dropped or has the wrong value.
+func TestALIHeaderPresent(t *testing.T) {
+	cfg := defaultTestConfig()
+	ts, _, _ := newTestStack(t, cfg)
+
+	resp, err := ts.Client().Get(ts.URL + "/healthz")
+	if err != nil {
+		t.Fatalf("GET /healthz: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /healthz: expected 200, got %d", resp.StatusCode)
+	}
+
+	expectedLocation := cfg.BaseURL + cfg.YggdrasilPrefix + "/"
+	actualLocation := resp.Header.Get("X-Authlib-Injector-API-Location")
+	if actualLocation != expectedLocation {
+		t.Errorf("X-Authlib-Injector-API-Location mismatch: expected %q, got %q", expectedLocation, actualLocation)
+	}
+}
+
 // TestRegisterThenBasicAuth is the primary canary: it verifies that a freshly registered
 // user can authenticate via HTTP Basic auth on GET /api/me, and that the response
 // contains the correct email. If registration or auth is broken this test fails.

@@ -89,6 +89,22 @@ func bodyLimit(limitBytes int) func(http.Handler) http.Handler {
 	}
 }
 
+// aliHeader sets the authlib-injector API Location Indication (ALI) response header on
+// every response. The value is the absolute URL of the Yggdrasil API, letting launchers
+// discover the real endpoint from any address served by this instance. An empty location
+// disables the header.
+// Ref: https://yushijinhun.github.io/authlib-injector/en/yggdrasil-server-technical-specification.html
+func aliHeader(location string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if location != "" {
+				w.Header().Set("X-Authlib-Injector-API-Location", location)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // limiterEntry bundles a rate.Limiter with the last access time used for cleanup.
 type limiterEntry struct {
 	limiter  *rate.Limiter
