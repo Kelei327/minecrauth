@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com>
+// SPDX-License-Identifier: Apache-2.0
+
 // Package httpserver_test: web_session_test.go covers the /web/api routes,
 // sessionOrBasicAuth middleware (cookie + Basic fallback), CSRF protection,
 // User.Blocked flow, admin player/texture management routes, and /web/api/config.

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com>
+// SPDX-License-Identifier: Apache-2.0
+
 package auth_test
 
 // oidc_test.go contains canary tests for OIDCAuthenticator and CompositeAuthenticator.

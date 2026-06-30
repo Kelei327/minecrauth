@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com>
+// SPDX-License-Identifier: Apache-2.0
+
 const { ref, onMounted, onBeforeUnmount, watch, nextTick } = window.Vue;
 
 // Default skin used when a player has no skin of its own, mirroring Minecraft's

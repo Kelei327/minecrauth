@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com>
+// SPDX-License-Identifier: Apache-2.0
+
 // Package httpserver: web.go contains the browser Web UI API handlers.
 // Routes are mounted under /web/api and are used exclusively by the Vue 3 Web UI.
 // All routes return JSON; session state is carried in an HttpOnly cookie.

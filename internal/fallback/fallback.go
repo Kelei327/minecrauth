@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com>
+// SPDX-License-Identifier: Apache-2.0
+
 // Package fallback implements a client for upstream Yggdrasil-compatible API servers
 // used to support mixed-auth (e.g. local + Mojang players) and skin forwarding.
 package fallback

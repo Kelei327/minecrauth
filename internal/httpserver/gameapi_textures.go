@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com>
+// SPDX-License-Identifier: Apache-2.0
+
 // Package httpserver: this file implements the authlib-injector game-facing texture API
 // (Bearer-authenticated upload and clear), mounted under the Yggdrasil API prefix.
 package httpserver
