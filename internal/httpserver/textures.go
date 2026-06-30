@@ -3,10 +3,8 @@
 package httpserver
 
 import (
-	"bytes"
 	"errors"
 	"image"
-	"image/png"
 	"io"
 	"log/slog"
 	"net/http"
@@ -445,20 +443,22 @@ func (mh *managementHandler) handleDeleteCape(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// readAndDecodePNG reads the entire body and decodes it as a PNG image.
+// readAndDecodePNG reads the entire body, validates and sanitizes it as a PNG image.
+// The body is already capped by the bodyLimit middleware upstream.
 // On error it writes the appropriate HTTP error response and returns false.
+// On success it returns the sanitized PNG bytes and the decoded image.
 func readAndDecodePNG(w http.ResponseWriter, body io.Reader) ([]byte, image.Image, bool) {
 	data, err := io.ReadAll(body)
 	if err != nil {
 		writeErrorJSON(w, http.StatusBadRequest, "BadRequest", "failed to read request body")
 		return nil, nil, false
 	}
-	img, err := png.Decode(bytes.NewReader(data))
+	sanitized, img, err := textures.DecodeAndSanitize(data)
 	if err != nil {
-		writeErrorJSON(w, http.StatusBadRequest, "BadRequest", "request body is not a valid PNG image")
+		writeErrorJSON(w, http.StatusBadRequest, "BadRequest", "request body is not a valid PNG image: "+err.Error())
 		return nil, nil, false
 	}
-	return data, img, true
+	return sanitized, img, true
 }
 
 // fetchURL fetches a PNG from rawURL with a 30-second timeout, caps the body to
@@ -483,10 +483,10 @@ func fetchURL(w http.ResponseWriter, rawURL string, limitBytes int) ([]byte, ima
 		return nil, nil, false
 	}
 
-	img, err := png.Decode(bytes.NewReader(data))
+	sanitized, img, err := textures.DecodeAndSanitize(data)
 	if err != nil {
-		writeErrorJSON(w, http.StatusBadRequest, "BadRequest", "texture URL did not return a valid PNG image")
+		writeErrorJSON(w, http.StatusBadRequest, "BadRequest", "texture URL did not return a valid PNG image: "+err.Error())
 		return nil, nil, false
 	}
-	return data, img, true
+	return sanitized, img, true
 }

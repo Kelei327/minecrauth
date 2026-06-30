@@ -19,6 +19,14 @@ import (
 // Used to validate texture hashes and prevent path traversal in Get.
 var reHex = regexp.MustCompile(`^[0-9a-f]+$`)
 
+// MaxTextureDimension is the absolute ceiling, in pixels, for the width or height of any
+// uploaded texture. It is a hard safety limit independent of the configurable skin size
+// limit. image/png sizes its pixel buffer from the PNG header before reading pixel data,
+// so a tiny crafted file declaring enormous dimensions can exhaust memory (a PNG
+// decompression bomb). DecodeAndSanitize reads only the header first and rejects oversized
+// images before any full decode. 1024 is far above any legitimate skin or HD skin.
+const MaxTextureDimension = 1024
+
 // TextureStore implements content-addressed storage for PNG texture files.
 // Two uploads of identical bytes produce the same hash and only one file on disk.
 type TextureStore struct {
@@ -55,6 +63,42 @@ func (ts *TextureStore) Put(data []byte) (string, error) {
 		return "", fmt.Errorf("writing texture %s: %w", hash, err)
 	}
 	return hash, nil
+}
+
+// DecodeAndSanitize validates and normalizes raw PNG bytes for safe storage and serving.
+//
+// It first reads ONLY the PNG header (png.DecodeConfig) and rejects the image if its
+// declared width or height exceeds MaxTextureDimension, BEFORE any full decode. This is
+// the defense against PNG decompression bombs: a full png.Decode allocates a pixel buffer
+// sized from the header, so the dimension check must happen on the header alone.
+//
+// It then fully decodes the image and re-encodes it with the standard encoder, which emits
+// only the bitmap (IHDR/IDAT/IEND) and drops any ancillary chunks (tEXt, zTXt, etc.) that
+// could carry hostile payloads to clients.
+//
+// It returns the sanitized PNG bytes (to be stored) and the decoded image (for dimension
+// validation by the caller via ValidateSkin/ValidateCape). The returned bytes are what the
+// caller must persist, NOT the original input.
+func DecodeAndSanitize(data []byte) ([]byte, image.Image, error) {
+	cfg, err := png.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return nil, nil, fmt.Errorf("decoding PNG header: %w", err)
+	}
+	if cfg.Width > MaxTextureDimension || cfg.Height > MaxTextureDimension {
+		return nil, nil, fmt.Errorf("texture dimensions %dx%d exceed the maximum of %d pixels", cfg.Width, cfg.Height, MaxTextureDimension)
+	}
+
+	img, err := png.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil, nil, fmt.Errorf("decoding PNG: %w", err)
+	}
+
+	var buf bytes.Buffer
+	enc := png.Encoder{CompressionLevel: png.DefaultCompression}
+	if err := enc.Encode(&buf, img); err != nil {
+		return nil, nil, fmt.Errorf("re-encoding sanitized PNG: %w", err)
+	}
+	return buf.Bytes(), img, nil
 }
 
 // Get returns the raw PNG bytes for the texture identified by hash.

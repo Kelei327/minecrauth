@@ -7,6 +7,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/achetronic/minecrauth/internal/textures"
@@ -276,5 +277,155 @@ func TestDetectModel(t *testing.T) {
 	}
 	if got := textures.DetectModel(slim); got != "slim" {
 		t.Errorf("slim skin: expected slim, got %q", got)
+	}
+}
+
+// crcChecksum computes a standard PNG CRC-32 over data, used when building synthetic
+// PNG chunks in tests.
+func crcChecksum(data []byte) uint32 {
+	var table [256]uint32
+	for n := 0; n < 256; n++ {
+		c := uint32(n)
+		for k := 0; k < 8; k++ {
+			if c&1 != 0 {
+				c = 0xedb88320 ^ (c >> 1)
+			} else {
+				c >>= 1
+			}
+		}
+		table[n] = c
+	}
+	c := uint32(0xffffffff)
+	for _, b := range data {
+		c = table[(c^uint32(b))&0xff] ^ (c >> 8)
+	}
+	return c ^ 0xffffffff
+}
+
+// buildChunk encodes a PNG chunk: 4-byte length, 4-byte type, payload, 4-byte CRC.
+func buildChunk(typ string, payload []byte) []byte {
+	var b bytes.Buffer
+	l := uint32(len(payload))
+	b.Write([]byte{byte(l >> 24), byte(l >> 16), byte(l >> 8), byte(l)})
+	td := append([]byte(typ), payload...)
+	b.Write(td)
+	cv := crcChecksum(td)
+	b.Write([]byte{byte(cv >> 24), byte(cv >> 16), byte(cv >> 8), byte(cv)})
+	return b.Bytes()
+}
+
+// craftOversizedPNG builds a syntactically valid PNG header declaring w x h dimensions
+// with a deliberately truncated IDAT, used to probe the decompression-bomb guard.
+func craftOversizedPNG(w, h uint32) []byte {
+	var b bytes.Buffer
+	b.Write([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a})
+	ihdr := []byte{
+		byte(w >> 24), byte(w >> 16), byte(w >> 8), byte(w),
+		byte(h >> 24), byte(h >> 16), byte(h >> 8), byte(h),
+		8, 6, 0, 0, 0, // bit depth 8, color type 6 (RGBA), default compression/filter/interlace
+	}
+	b.Write(buildChunk("IHDR", ihdr))
+	b.Write(buildChunk("IDAT", []byte{0x78, 0x9c, 0x01, 0x00})) // truncated zlib stream
+	b.Write(buildChunk("IEND", nil))
+	return b.Bytes()
+}
+
+// injectTextChunk inserts a tEXt chunk carrying keyword and text directly before the
+// final IEND chunk of a valid PNG byte slice. The IEND chunk is always the last 12 bytes
+// (4 length + 4 type + 0 payload + 4 CRC) of a valid PNG.
+func injectTextChunk(pngData []byte, keyword, text string) []byte {
+	payload := append([]byte(keyword), 0x00)
+	payload = append(payload, []byte(text)...)
+	chunk := buildChunk("tEXt", payload)
+	// Insert just before the final 12 bytes (IEND chunk).
+	split := len(pngData) - 12
+	result := make([]byte, 0, len(pngData)+len(chunk))
+	result = append(result, pngData[:split]...)
+	result = append(result, chunk...)
+	result = append(result, pngData[split:]...)
+	return result
+}
+
+// TestDecodeAndSanitizeRejectsOversized verifies that DecodeAndSanitize rejects a
+// crafted PNG that declares enormous dimensions in its header BEFORE any full decode
+// attempt. The canary assertion checks that the error message mentions "exceed the
+// maximum", which is only produced by the DecodeConfig dimension guard. If that guard
+// were removed, png.Decode would fail later with a different error after attempting the
+// gigabyte allocation, so the canary would catch the regression.
+func TestDecodeAndSanitizeRejectsOversized(t *testing.T) {
+	data := craftOversizedPNG(60000, 60000)
+
+	// The crafted file must be tiny (far below 1 KiB) to prove it would otherwise trigger
+	// a gigabyte allocation inside png.Decode.
+	if len(data) > 200 {
+		t.Fatalf("crafted bomb PNG is %d bytes; expected a tiny file (<= 200 bytes) that would allocate ~14 GB if decoded", len(data))
+	}
+
+	_, _, err := textures.DecodeAndSanitize(data)
+	if err == nil {
+		t.Fatal("DecodeAndSanitize should have rejected oversized PNG but returned nil error")
+	}
+
+	// Canary: the error must come from the header dimension check, not from png.Decode.
+	// If the DecodeConfig guard is removed the error message will be different (e.g.
+	// "not enough pixel data") and this assertion will fail.
+	if !strings.Contains(err.Error(), "exceed the maximum") {
+		t.Errorf("expected error to mention \"exceed the maximum\"; got: %v", err)
+	}
+}
+
+// TestDecodeAndSanitizeStripsAncillaryChunks verifies that DecodeAndSanitize removes
+// ancillary PNG chunks (tEXt, zTXt, etc.) from the output. This prevents hostile payloads
+// embedded in uploaded textures from being served back to clients.
+// The canary assertion fails if the re-encode step is removed.
+func TestDecodeAndSanitizeStripsAncillaryChunks(t *testing.T) {
+	base := generatePNG(t, 64, 64)
+
+	const marker = "INJECTED_PAYLOAD_MARKER"
+	input := injectTextChunk(base, "Comment", marker)
+
+	// Sanity: the injection must be present in the raw input bytes.
+	if !bytes.Contains(input, []byte(marker)) {
+		t.Fatal("sanity check failed: injected tEXt chunk marker not found in crafted input")
+	}
+
+	out, _, err := textures.DecodeAndSanitize(input)
+	if err != nil {
+		t.Fatalf("DecodeAndSanitize returned unexpected error: %v", err)
+	}
+
+	// Canary: the sanitized output must NOT carry the injected marker.
+	if bytes.Contains(out, []byte(marker)) {
+		t.Error("sanitized PNG still contains injected ancillary chunk payload; re-encoding did not strip it")
+	}
+
+	// The output must still be a valid 64x64 PNG.
+	cfg, err := png.DecodeConfig(bytes.NewReader(out))
+	if err != nil {
+		t.Fatalf("output is not a valid PNG: %v", err)
+	}
+	if cfg.Width != 64 || cfg.Height != 64 {
+		t.Errorf("output dimensions are %dx%d; want 64x64", cfg.Width, cfg.Height)
+	}
+}
+
+// TestDecodeAndSanitizeValidSkin verifies the happy path: a well-formed 64x64 skin PNG
+// passes DecodeAndSanitize and produces non-empty sanitized bytes and a 64x64 image.
+func TestDecodeAndSanitizeValidSkin(t *testing.T) {
+	input := generatePNG(t, 64, 64)
+
+	out, img, err := textures.DecodeAndSanitize(input)
+	if err != nil {
+		t.Fatalf("DecodeAndSanitize returned unexpected error: %v", err)
+	}
+	if len(out) == 0 {
+		t.Error("sanitized PNG bytes are empty")
+	}
+	if img == nil {
+		t.Fatal("returned image is nil")
+	}
+	b := img.Bounds()
+	if b.Dx() != 64 || b.Dy() != 64 {
+		t.Errorf("image bounds are %dx%d; want 64x64", b.Dx(), b.Dy())
 	}
 }
