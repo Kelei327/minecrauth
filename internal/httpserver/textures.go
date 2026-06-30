@@ -1,4 +1,4 @@
-// Copyright 2025 - Alby Hernández and the minecrauth contributors
+// SPDX-FileCopyrightText: 2026 Alby Hernández <hola@achetronic.com>
 // SPDX-License-Identifier: Apache-2.0
 
 // Package httpserver: this file contains the skin and cape texture upload,
