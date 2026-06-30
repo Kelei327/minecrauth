@@ -56,8 +56,6 @@
 
 ### Screenshots
 
-<!-- Note: Owner will drop the real PNG files into docs/assets/screenshots/ -->
-
 <table>
   <tr>
     <td width="50%" align="center">
