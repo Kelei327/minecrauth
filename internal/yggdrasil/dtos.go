@@ -3,9 +3,18 @@ package yggdrasil
 
 // metaMeta holds the server and implementation identity embedded in the authlib-injector metadata document.
 type metaMeta struct {
-	ServerName            string `json:"serverName"`
-	ImplementationName    string `json:"implementationName"`
-	ImplementationVersion string `json:"implementationVersion"`
+	ServerName            string     `json:"serverName"`
+	ImplementationName    string     `json:"implementationName"`
+	ImplementationVersion string     `json:"implementationVersion"`
+	Links                 *metaLinks `json:"links,omitempty"`
+}
+
+// metaLinks holds optional launcher-facing URLs advertised in the authlib-injector
+// metadata document. Homepage points to the server root; Register points to the
+// page where new accounts are created.
+type metaLinks struct {
+	Homepage string `json:"homepage,omitempty"`
+	Register string `json:"register,omitempty"`
 }
 
 // MetadataResponse is the root document served at GET / for authlib-injector clients.

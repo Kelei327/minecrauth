@@ -197,7 +197,7 @@ func newOidcWebTestStack(t *testing.T, cfg *config.Config, st store.Store, brows
 		UUIDGeneration:    cfg.UUIDGeneration,
 	})
 
-	yggH := yggdrasil.NewHandler(tokenSvc, authn, svc, km, cfg.ServerName, cfg.Domain, cfg.BaseURL, nil, false, false, true, true)
+	yggH := yggdrasil.NewHandler(tokenSvc, authn, svc, km, cfg.ServerName, cfg.Domain, cfg.BaseURL, nil, false, false, true, true, "0.0.0-test")
 
 	textureDir := t.TempDir()
 	textureSt, err := textures.New(textureDir)

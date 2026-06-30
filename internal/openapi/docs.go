@@ -565,6 +565,17 @@ const docTemplate = `{
                 },
                 "type": "object"
             },
+            "yggdrasil.metaLinks": {
+                "properties": {
+                    "homepage": {
+                        "type": "string"
+                    },
+                    "register": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
             "yggdrasil.metaMeta": {
                 "properties": {
                     "implementationName": {
@@ -572,6 +583,9 @@ const docTemplate = `{
                     },
                     "implementationVersion": {
                         "type": "string"
+                    },
+                    "links": {
+                        "$ref": "#/components/schemas/yggdrasil.metaLinks"
                     },
                     "serverName": {
                         "type": "string"

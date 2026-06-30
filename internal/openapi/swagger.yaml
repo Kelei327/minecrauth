@@ -361,12 +361,21 @@ components:
         version:
           type: integer
       type: object
+    yggdrasil.metaLinks:
+      properties:
+        homepage:
+          type: string
+        register:
+          type: string
+      type: object
     yggdrasil.metaMeta:
       properties:
         implementationName:
           type: string
         implementationVersion:
           type: string
+        links:
+          $ref: '#/components/schemas/yggdrasil.metaLinks'
         serverName:
           type: string
       type: object

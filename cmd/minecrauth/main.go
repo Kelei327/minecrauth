@@ -29,6 +29,14 @@ import (
 	"github.com/achetronic/minecrauth/internal/yggdrasil"
 )
 
+// Build metadata, stamped by goreleaser ldflags (-X main.Version, etc.).
+// Defaults apply for non-release builds (e.g. go build, make build).
+var (
+	Version = "dev"
+	Commit  = "none"
+	Date    = "unknown"
+)
+
 // @title           minecrauth API
 // @version         1.0
 // @description     Yggdrasil-compatible Minecraft authentication server. Management endpoints accept either an HTTP Basic credential or a browser session cookie; cookie-authenticated mutating requests also require the X-CSRF-Token header.
@@ -45,6 +53,7 @@ func main() {
 	slog.SetDefault(logger)
 
 	slog.Info("initializing minecrauth server")
+	slog.Info("build info", "version", Version, "commit", Commit, "date", Date)
 
 	configPath := flag.String("config", "", "path to the YAML configuration file (required)")
 	flag.Parse()
@@ -232,7 +241,7 @@ func main() {
 
 	gameAuthn := auth.NewGameAuthenticator(st)
 	yggH := yggdrasil.NewHandler(tokenSvc, gameAuthn, svc, km, cfg.ServerName, cfg.Domain, cfg.BaseURL,
-		fbClient, cfg.ForwardSkins, cfg.OfflineSkins, cfg.AllowSkins, cfg.AllowCapes)
+		fbClient, cfg.ForwardSkins, cfg.OfflineSkins, cfg.AllowSkins, cfg.AllowCapes, Version)
 
 	// Browser session manager for the Vue Web UI.
 	sessionTTL := time.Duration(cfg.SessionTTLSeconds) * time.Second

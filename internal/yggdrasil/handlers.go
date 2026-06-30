@@ -30,6 +30,7 @@ type Handler struct {
 	offlineSkins bool             // resolve offline UUIDs to local players
 	allowSkins   bool             // advertise skin upload capability in profiles
 	allowCapes   bool             // advertise cape upload capability in profiles
+	version      string           // implementation version advertised in metadata (build-stamped)
 }
 
 // NewHandler constructs a ready-to-use Handler. serverName is the human-readable name
@@ -53,6 +54,7 @@ func NewHandler(
 	offlineSkins bool,
 	allowSkins bool,
 	allowCapes bool,
+	version string,
 ) *Handler {
 	return &Handler{
 		tokens:       tokens,
@@ -68,6 +70,7 @@ func NewHandler(
 		offlineSkins: offlineSkins,
 		allowSkins:   allowSkins,
 		allowCapes:   allowCapes,
+		version:      version,
 	}
 }
 
@@ -109,7 +112,11 @@ func (h *Handler) handleMetadata(w http.ResponseWriter, r *http.Request) {
 		Meta: metaMeta{
 			ServerName:            h.serverName,
 			ImplementationName:    "minecrauth",
-			ImplementationVersion: "0.1.0",
+			ImplementationVersion: h.version,
+			Links: &metaLinks{
+				Homepage: h.baseURL,
+				Register: h.baseURL + "/login",
+			},
 		},
 		SkinDomains:        []string{h.domain},
 		SignaturePublickey: h.keys.PublicKeyPEM(),

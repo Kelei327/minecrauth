@@ -88,7 +88,7 @@ func newTestEnv(t *testing.T) *testEnv {
 	tokens := auth.NewTokenService(st, 0, nil) // TTL 0 = never expires
 	km := newTestKeyManager(t)
 
-	h := NewHandler(tokens, authn, svc, km, "TestServer", "example.com", "http://example.com", nil, false, false, true, true)
+	h := NewHandler(tokens, authn, svc, km, "TestServer", "example.com", "http://example.com", nil, false, false, true, true, "0.0.0-test")
 	return &testEnv{handler: h.Routes(), accounts: svc, tokens: tokens}
 }
 
@@ -201,6 +201,18 @@ func TestMetadata(t *testing.T) {
 	}
 	if meta.Meta.ServerName != "TestServer" {
 		t.Errorf("serverName = %q; want %q", meta.Meta.ServerName, "TestServer")
+	}
+	if meta.Meta.ImplementationVersion != "0.0.0-test" {
+		t.Errorf("implementationVersion = %q; want %q (must be build-stamped, not hardcoded)", meta.Meta.ImplementationVersion, "0.0.0-test")
+	}
+	if meta.Meta.Links == nil {
+		t.Fatal("meta.links is nil; want homepage and register URLs")
+	}
+	if meta.Meta.Links.Homepage != "http://example.com" {
+		t.Errorf("links.homepage = %q; want %q", meta.Meta.Links.Homepage, "http://example.com")
+	}
+	if meta.Meta.Links.Register != "http://example.com/login" {
+		t.Errorf("links.register = %q; want %q", meta.Meta.Links.Register, "http://example.com/login")
 	}
 	if len(meta.SkinDomains) == 0 || meta.SkinDomains[0] != "example.com" {
 		t.Errorf("skinDomains = %v; want [example.com]", meta.SkinDomains)
@@ -986,7 +998,7 @@ func newTestEnvWithFallback(t *testing.T, srv *httptest.Server, denyUnknownUsers
 	})
 
 	h := NewHandler(tokens, authn, svc, km, "TestServer", "example.com", "http://example.com",
-		fb, false, false, true, true)
+		fb, false, false, true, true, "0.0.0-test")
 	return &testEnv{handler: h.Routes(), accounts: svc, tokens: tokens}
 }
 
@@ -1151,7 +1163,7 @@ func TestOfflineSkinsByUUID(t *testing.T) {
 
 	// offlineSkins=true, no fallback.
 	h := NewHandler(tokens, authn, svc, km, "TestServer", "example.com", "http://example.com",
-		nil, false, true, true, true)
+		nil, false, true, true, true, "0.0.0-test")
 	env := &testEnv{handler: h.Routes(), accounts: svc, tokens: tokens}
 
 	const playerName = "OfflinePlyr"
@@ -1258,7 +1270,7 @@ func TestForwardSkinsInjectsProperties(t *testing.T) {
 	// We use a chosen UUID matching fallbackKnownProfile.ID so the fake server returns it.
 	chosenDashed := redash(fallbackKnownProfile.ID)
 	h := NewHandler(tokens, authn, svc, km, "TestServer", "example.com", "http://example.com",
-		fb, true /* forwardSkins */, false, true, true)
+		fb, true /* forwardSkins */, false, true, true, "0.0.0-test")
 	env := &testEnv{handler: h.Routes(), accounts: svc, tokens: tokens}
 
 	ctx := context.Background()
