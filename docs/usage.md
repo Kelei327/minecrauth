@@ -72,6 +72,11 @@ When a player joins, the server calls minecrauth's `hasJoined`, which verifies t
 session token and returns the profile with signed textures. Offline-mode username
 spoofing is rejected.
 
+Signed chat on 1.19+ works through the same endpoint: the launcher fetches a per-player
+signing key from minecrauth, so a server with `enforce-secure-profile=true` accepts these
+accounts. In-game skin and cape changes from the client also work, gated by `allow_skins`
+and `allow_capes`.
+
 ## Next steps
 
 - [Configuration reference](configuration.md) for every option.

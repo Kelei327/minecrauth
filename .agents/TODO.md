@@ -17,4 +17,8 @@ Only open work is tracked here. Everything shipped (MVP, Phase 2 textures/intero
 Not promised to the owner; listed so they are not forgotten. Confirm before building.
 - [ ] Automatic DB backup before running schema migrations.
 - [ ] Configurable CORS.
-- [ ] `SignPublicKeys`: sign player public keys for chat signing / `enforce-secure-profile=true` on vanilla 1.19+.
+
+## Closed, do not reopen without a decision change
+- authlib-injector spec coverage is complete: uploadableTextures, dynamic metadata + meta.links, ALI header, in-game texture upload, and player certificates for 1.19+ signed chat are all shipped. See DECISIONS.md.
+- Login by profile name (`feature.non_email_login`) is deliberately out of scope (collision risk against the email-is-the-login model; not needed to play). See DECISIONS.md.
+- The Mojang host mirror integration path is out of scope. See DECISIONS.md.

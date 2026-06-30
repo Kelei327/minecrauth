@@ -41,8 +41,9 @@
 ## Features & Screenshots
 
 - **Full Yggdrasil flow:** authenticate, refresh, validate, invalidate, signout, join, hasJoined, name lookup, and RSA-signed texture profiles.
+- **Signed chat (1.19+):** per-player signing keys so servers with `enforce-secure-profile=true` accept your players.
 - **Many players per account:** one account owns several characters, handy for alts, camera accounts and AFK bots.
-- **Skins and capes:** upload by file or URL, with a 3D preview and slim/classic arm detection.
+- **Skins and capes:** upload by file or URL or in-game from the launcher, with a 3D preview and slim/classic arm detection.
 - **Mixed authentication:** delegate to fallback servers like Mojang so local and real Mojang accounts join the same server.
 - **OIDC for the web UI:** sign in through Keycloak, Kanidm, Authelia, Google and friends. Off until you configure it.
 - **Account recovery:** admins mint single-use reset links with no mail server at all; with SMTP, users get self-service forgot-password and email verification.

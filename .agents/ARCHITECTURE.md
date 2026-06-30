@@ -58,15 +58,15 @@ minecrauth/
 * **internal/httpserver/**  
   Configures the HTTP router, applies rate and body limiting middleware, and manages the lifecycle of all endpoints (Yggdrasil, public APIs, administrative APIs, and metrics). Supports session cookie validation and HTTP Basic auth.
 * **internal/yggdrasil/**  
-  Yggdrasil protocol handlers and DTOs. Translates incoming client join actions, handles game server validation pings, caches sessions, and manages the assembly of signed texture profiles.
+  Yggdrasil protocol handlers and DTOs. Translates incoming client join actions, handles game server validation pings, caches sessions, assembles signed texture profiles, and issues per-player certificates for 1.19+ signed chat.
 * **internal/auth/**  
   Manages opaque, random Yggdrasil tokens. Provides specialized authenticators for normal passwords, OIDC tokens, game-specific passwords, and browser-facing composite auth with PKCE.
 * **internal/accounts/**  
   Defines the 1:N relationship between users and players. Enforces invitation rules, manages TOTP (2FA) lifecycle states, manages reset tokens, and holds skin selection models.
 * **internal/signing/**  
-  Handles the RSA 4096-bit keypair lifecycle (persisted in PKCS#8 format) and executes SHA1withRSA profile signatures for clients.
+  Handles the RSA 4096-bit keypair lifecycle (persisted in PKCS#8 format) and executes SHA1withRSA signatures: profile properties and, via the raw `SignSHA1` primitive, the player public keys returned by the certificates endpoint.
 * **internal/textures/**  
-  Handles skin and cape file storage. Conducts content-addressing, validates image dimensions, and auto-detects classic or slim arm models.
+  Handles skin and cape file storage. Conducts content-addressing, validates image dimensions, and auto-detects classic or slim arm models. The `DecodeAndSanitize` primitive reads the PNG header first to reject oversized images before any full decode (decompression-bomb guard) and re-encodes accepted images to strip non-bitmap chunks; every upload path routes through it.
 * **internal/fallback/**  
   Provides mixed-authentication capabilities, allowing requests for non-local accounts to be forwarded to upstream providers (such as Mojang) while honoring local whitelist permissions.
 * **internal/mailer/**  

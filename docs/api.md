@@ -35,7 +35,10 @@ the admin one (bind it to localhost or put it behind a separate proxy).
 - **Yggdrasil plane**: launchers and game servers authenticate with opaque access tokens
   carried in the request body, exactly as the Yggdrasil/authlib-injector spec defines.
   If a user has set a game password, the launcher must use that instead of the account
-  password.
+  password. Two game-facing endpoints take the access token as an `Authorization: Bearer`
+  header instead of in the body, as their part of the spec requires: in-game texture
+  upload (`PUT`/`DELETE /api/user/profile/{uuid}/{textureType}`) and player certificates
+  (`POST /minecraftservices/player/certificates`).
 - **Management plane** (`/api`, `/admin`): every endpoint except registration and the
   public recovery endpoints requires authentication via **either** HTTP Basic
   (`email:password`) **or** the `minecrauth_session` cookie. Admin routes additionally

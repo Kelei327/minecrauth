@@ -321,3 +321,31 @@ The HTTP server exposes dedicated observability endpoints: `GET /healthz` for pr
 **Reasoning**: Essential for robust container orchestration and cloud deployments, allowing reverse proxies, load balancers, or Kubernetes to monitor health and collect precise telemetry.
 
 **Do not**: Expose raw database connection details or allow the readiness probe to block indefinitely.
+
+---
+
+## Cover the authlib-injector spec in full; no Mojang host mirror
+
+**Date**: 2026-06-30
+**Status**: Decided
+
+minecrauth implements the authlib-injector spec end to end: launchers point at one endpoint and everything works through it. The competing integration path, the Mojang host mirror (`-Dminecraft.api.*.host` pointing each Mojang service at a custom host), is out of scope and will not be built.
+
+The spec coverage now includes the parts that were previously missing: the `uploadableTextures` profile property gated by `allow_skins`/`allow_capes`, a dynamic `implementationVersion` and `meta.links` in the metadata document, the `X-Authlib-Injector-API-Location` (ALI) response header for service discovery, the in-game texture upload API (`PUT`/`DELETE /api/user/profile/{uuid}/{textureType}`, Bearer auth, multipart), and player certificates for 1.19+ signed chat (`POST /minecraftservices/player/certificates` plus `feature.enable_profile_key`).
+
+**Reasoning**: authlib-injector already covers everything the host mirror would, including signed chat, behind a single self-contained endpoint that a real launcher validates live. Maintaining a second integration surface for no extra capability is pure cost. One endpoint is also the deployment story the project is built around.
+
+**Do not**: add the Mojang host mirror, or split auth behaviour across a second integration path. New protocol work belongs inside the authlib-injector surface.
+
+---
+
+## Login is by email only; no login by profile name
+
+**Date**: 2026-06-30
+**Status**: Decided
+
+The authlib-injector spec allows a server to advertise `feature.non_email_login` and accept a profile name as the `username` at `/authserver/authenticate`. minecrauth does not do this: login is by email (the account credential) only, and `feature.non_email_login` stays off.
+
+**Reasoning**: the account model is one user (an email) to many players. A user can own several players, and player names are not globally unique to a single account in the way an email is, so accepting a name as the login identifier invites collisions: two users with same-named players, or a name that clashes with an email, have no unambiguous resolution. It also turns the login form into a name-enumeration oracle. None of this is needed to play: launchers authenticate with the email, pick a profile, join, and sign chat without ever logging in by name. The convenience does not justify breaking the `username == email` invariant the whole account layer rests on.
+
+**Do not**: accept a profile name as the `username` in authenticate, or set `feature.non_email_login` to true, without first redesigning the account model to make the login identifier unambiguous.

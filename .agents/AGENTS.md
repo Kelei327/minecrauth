@@ -96,8 +96,8 @@ Requires the administrative role (`IsAdmin`). Located on a separate configurable
 ## Documentation Index
 
 Explore the rest of the `.agents/` living documentation directory for deeper insights:
-* [ARCHITECTURE.md](./ARCHITECTURE.md) — Describes the design architecture, directory layout, and the handshake data-flow diagram.
-* [CONVENTIONS.md](./CONVENTIONS.md) — Codification of development rules, logging standards, testing, and formatting guidelines.
-* [DECISIONS.md](./DECISIONS.md) — Log of structural decisions, chosen libraries, and architectural compromises.
-* [OBJECTIVES.md](./OBJECTIVES.md) — Defines the milestones, goals, and delivery phases of the system.
-* [TODO.md](./TODO.md) — Active tracking list of remaining items and feature backlog.
+* [ARCHITECTURE.md](./ARCHITECTURE.md): Describes the design architecture, directory layout, and the handshake data-flow diagram.
+* [CONVENTIONS.md](./CONVENTIONS.md): Codification of development rules, logging standards, testing, and formatting guidelines.
+* [DECISIONS.md](./DECISIONS.md): Log of structural decisions, chosen libraries, and architectural compromises.
+* [OBJECTIVES.md](./OBJECTIVES.md): Defines the milestones, goals, and delivery phases of the system.
+* [TODO.md](./TODO.md): Active tracking list of remaining items and feature backlog.

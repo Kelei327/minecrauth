@@ -21,6 +21,7 @@ minecrauth differentiates by being: **pure-Go, no cgo, single static binary, pre
 - **Yggdrasil protocol**: minecrauth implements the Yggdrasil protocol (used by Minecraft since 1.6) compatible with [authlib-injector](https://github.com/yushijinhun/authlib-injector), the de-facto standard javaagent for custom auth servers.
 - **Drop-in replacement**: It functions as a drop-in replacement for Mojang's auth in launchers (Fjord/Freesm, HMCL, Prism) and on vanilla servers via JVM arguments.
 - **Java Edition only**: Bedrock Edition is explicitly out of scope.
+- **Login is by email**: there is no login by profile name (`feature.non_email_login` stays off); it is not needed to play and would collide with the email-is-the-login account model.
 
 ---
 
@@ -41,7 +42,9 @@ minecrauth differentiates by being: **pure-Go, no cgo, single static binary, pre
 - Full Yggdrasil API: `/authserver/{authenticate,refresh,validate,invalidate,signout}`.
 - Handshake endpoints: `/sessionserver/session/minecraft/{join,hasJoined}` and profile lookup.
 - Bulk name-to-UUID resolution at `/api/profiles/minecraft`.
-- RSA profile signing and authlib-injector metadata document at the API root.
+- RSA profile signing and authlib-injector metadata document at the API root, including dynamic implementation version and homepage/register links.
+- `X-Authlib-Injector-API-Location` (ALI) header so launchers can discover the API from any address the server serves.
+- Player certificates for 1.19+ signed chat: `POST /minecraftservices/player/certificates` issues a per-player keypair signed by the server key, advertised via `feature.enable_profile_key`.
 
 ### Accounts & Players (1:N)
 - Self-service registration (username == email).
@@ -53,6 +56,8 @@ minecrauth differentiates by being: **pure-Go, no cgo, single static binary, pre
 
 ### Skins & Capes
 - Texture upload (skins and capes) via file or direct URL.
+- In-game texture upload through the authlib-injector game API (`PUT`/`DELETE /api/user/profile/{uuid}/{textureType}`, Bearer auth), advertised per player via the `uploadableTextures` property and gated by `allow_skins`/`allow_capes`.
+- Upload hardening: PNG headers are checked before decode (decompression-bomb guard) and every accepted texture is re-encoded to strip non-bitmap chunks.
 - High-resolution skin support (>64x64).
 - Classic/slim arm-model autodetection and viewer toggle.
 - `ForwardSkins`: Fallback forwarding to fetch textures from Mojang if the local player has none.
@@ -91,5 +96,7 @@ The project was built in phases following a strict API-first constraint. The Ygg
 
 - Bedrock Edition support.
 - Functioning as a Microsoft/Mojang account proxy.
+- The Mojang host mirror integration path (authlib-injector covers the same ground behind one endpoint).
+- Login by profile name (`feature.non_email_login`).
 - Adding a Node/npm/Vite compilation pipeline.
 - Introducing `cgo` dependencies.
