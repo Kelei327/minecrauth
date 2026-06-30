@@ -7,6 +7,10 @@ type metaMeta struct {
 	ImplementationName    string     `json:"implementationName"`
 	ImplementationVersion string     `json:"implementationVersion"`
 	Links                 *metaLinks `json:"links,omitempty"`
+	// EnableProfileKey signals to authlib-injector clients that this server supports
+	// the player certificates endpoint (MC 1.19+ signed chat). The dotted JSON key
+	// is required by the authlib-injector feature flag convention.
+	EnableProfileKey bool `json:"feature.enable_profile_key"`
 }
 
 // metaLinks holds optional launcher-facing URLs advertised in the authlib-injector

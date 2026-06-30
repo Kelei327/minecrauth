@@ -9,6 +9,8 @@ import (
 	"crypto/sha1"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"io"
@@ -20,6 +22,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/achetronic/minecrauth/internal/accounts"
 	"github.com/achetronic/minecrauth/internal/auth"
@@ -234,6 +237,10 @@ func TestMetadata(t *testing.T) {
 	}
 	if _, ok := parsed.(*rsa.PublicKey); !ok {
 		t.Fatalf("parsed key type = %T; want *rsa.PublicKey", parsed)
+	}
+
+	if !meta.Meta.EnableProfileKey {
+		t.Error("expected feature.enable_profile_key to be true")
 	}
 }
 
@@ -1333,5 +1340,131 @@ func TestNoFallbackBehaviourUnchanged(t *testing.T) {
 	decodeBody(t, rec3, &stubs)
 	if len(stubs) != 0 {
 		t.Errorf("bulk no fallback: expected empty, got %v", stubs)
+	}
+}
+
+// TestPlayerCertificates is the Phase 4 canary. It verifies that:
+//  1. The endpoint requires a Bearer token (401 without one).
+//  2. A valid token bound to a player returns a 200 certificate bundle.
+//  3. The returned PEM blocks carry the expected headers.
+//  4. The v2 signature over the binary buffer (uuid ++ expiresAtMilli ++ pubDER)
+//     verifies correctly against the server public key from the metadata endpoint.
+func TestPlayerCertificates(t *testing.T) {
+	e := newTestEnv(t)
+
+	createUserAndPlayer(t, e, "certs@example.com", "strongpass1", "CertPlayer")
+
+	// Authenticate to get a token with a bound profile.
+	authRec := e.do(t, http.MethodPost, "/authserver/authenticate", map[string]any{
+		"username": "certs@example.com",
+		"password": "strongpass1",
+	})
+	if authRec.Code != http.StatusOK {
+		t.Fatalf("authenticate status = %d; want 200\nbody: %s", authRec.Code, authRec.Body.String())
+	}
+	var authResp AuthenticateResponse
+	decodeBody(t, authRec, &authResp)
+	if authResp.AccessToken == "" {
+		t.Fatal("accessToken is empty")
+	}
+	if authResp.SelectedProfile == nil {
+		t.Fatal("selectedProfile is nil; need a bound profile for the certificates endpoint")
+	}
+
+	// 1. Request without any Bearer header -> expect 401.
+	rec401 := httptest.NewRecorder()
+	req401 := httptest.NewRequest(http.MethodPost, "/minecraftservices/player/certificates", nil)
+	e.handler.ServeHTTP(rec401, req401)
+	if rec401.Code != http.StatusUnauthorized {
+		t.Errorf("no Bearer header: status = %d; want 401", rec401.Code)
+	}
+
+	// 2. Request with a valid Bearer token -> expect 200.
+	req := httptest.NewRequest(http.MethodPost, "/minecraftservices/player/certificates", nil)
+	req.Header.Set("Authorization", "Bearer "+authResp.AccessToken)
+	rec := httptest.NewRecorder()
+	e.handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("certificates status = %d; want 200\nbody: %s", rec.Code, rec.Body.String())
+	}
+
+	var certResp certificatesResponse
+	decodeBody(t, rec, &certResp)
+
+	// 3. Assert key material headers and non-empty signatures.
+	if !strings.Contains(certResp.KeyPair.PrivateKey, "BEGIN RSA PRIVATE KEY") {
+		t.Errorf("privateKey missing expected PEM header")
+	}
+	if !strings.Contains(certResp.KeyPair.PublicKey, "BEGIN RSA PUBLIC KEY") {
+		t.Errorf("publicKey missing expected PEM header")
+	}
+	if certResp.PublicKeySignature == "" {
+		t.Error("publicKeySignature is empty")
+	}
+	if certResp.PublicKeySignatureV2 == "" {
+		t.Error("publicKeySignatureV2 is empty")
+	}
+	expiresAt, err := time.Parse(time.RFC3339Nano, certResp.ExpiresAt)
+	if err != nil {
+		t.Fatalf("parsing expiresAt %q: %v", certResp.ExpiresAt, err)
+	}
+	if _, err := time.Parse(time.RFC3339Nano, certResp.RefreshedAfter); err != nil {
+		t.Fatalf("parsing refreshedAfter %q: %v", certResp.RefreshedAfter, err)
+	}
+
+	// 4. Crypto canary: reconstruct the v2 signed buffer and verify against the server
+	// public key fetched from the live metadata endpoint.
+
+	// Fetch server public key from the metadata endpoint.
+	metaRec := e.do(t, http.MethodGet, "/", nil)
+	var meta MetadataResponse
+	decodeBody(t, metaRec, &meta)
+	pemBlock, _ := pem.Decode([]byte(meta.SignaturePublickey))
+	if pemBlock == nil {
+		t.Fatal("signaturePublickey from metadata is not valid PEM")
+	}
+	parsedKey, err := x509.ParsePKIXPublicKey(pemBlock.Bytes)
+	if err != nil {
+		t.Fatalf("parsing server public key from metadata: %v", err)
+	}
+	serverPub, ok := parsedKey.(*rsa.PublicKey)
+	if !ok {
+		t.Fatalf("server public key type = %T; want *rsa.PublicKey", parsedKey)
+	}
+
+	// Decode the returned ephemeral public key PEM; block.Bytes is pubDER (SPKI/PKIX).
+	pubBlock, _ := pem.Decode([]byte(certResp.KeyPair.PublicKey))
+	if pubBlock == nil {
+		t.Fatal("keyPair.publicKey is not a valid PEM block")
+	}
+	pubDER := pubBlock.Bytes
+
+	// authResp.SelectedProfile.ID is already the undashed 32-hex UUID.
+	uuidBytes, err := hex.DecodeString(authResp.SelectedProfile.ID)
+	if err != nil {
+		t.Fatalf("hex-decoding player UUID %q: %v", authResp.SelectedProfile.ID, err)
+	}
+	if len(uuidBytes) != 16 {
+		t.Fatalf("expected 16 UUID bytes; got %d", len(uuidBytes))
+	}
+
+	// Build the v2 buffer: uuid(16) ++ expiresAtMilli(8, big-endian) ++ pubDER.
+	expiresAtMilli := expiresAt.UnixMilli()
+	ts := make([]byte, 8)
+	binary.BigEndian.PutUint64(ts, uint64(expiresAtMilli))
+
+	v2buf := make([]byte, 0, 24+len(pubDER))
+	v2buf = append(v2buf, uuidBytes...)
+	v2buf = append(v2buf, ts...)
+	v2buf = append(v2buf, pubDER...)
+
+	digest := sha1.Sum(v2buf)
+
+	sigV2, err := base64.StdEncoding.DecodeString(certResp.PublicKeySignatureV2)
+	if err != nil {
+		t.Fatalf("base64-decoding publicKeySignatureV2: %v", err)
+	}
+	if err := rsa.VerifyPKCS1v15(serverPub, crypto.SHA1, digest[:], sigV2); err != nil {
+		t.Fatalf("v2 signature verification failed (SHA1withRSA/PKCS1v15): %v", err)
 	}
 }

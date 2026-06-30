@@ -73,6 +73,17 @@ func newWithBits(keyPath string, bits int) (*KeyManager, error) {
 	}, nil
 }
 
+// SignSHA1 returns the raw RSASSA-PKCS1-v1_5 signature over a SHA-1 digest of data.
+// SHA-1 is mandatory here for authlib-injector / Minecraft compatibility (see SignProperty).
+func (km *KeyManager) SignSHA1(data []byte) ([]byte, error) {
+	digest := sha1.Sum(data)
+	sig, err := rsa.SignPKCS1v15(rand.Reader, km.privateKey, crypto.SHA1, digest[:])
+	if err != nil {
+		return nil, fmt.Errorf("signing data: %w", err)
+	}
+	return sig, nil
+}
+
 // SignProperty returns the base64-standard-encoded SHA1withRSA signature of value.
 //
 // The algorithm is RSASSA-PKCS1-v1_5 over a SHA-1 digest. SHA-1 is intentional and
@@ -81,10 +92,9 @@ func newWithBits(keyPath string, bits int) (*KeyManager, error) {
 // SHA1withRSA. Replacing SHA-1 with a stronger hash (e.g. SHA-256) would silently
 // break signature verification in every launcher and server using authlib-injector.
 func (km *KeyManager) SignProperty(value string) (string, error) {
-	digest := sha1.Sum([]byte(value))
-	sig, err := rsa.SignPKCS1v15(rand.Reader, km.privateKey, crypto.SHA1, digest[:])
+	sig, err := km.SignSHA1([]byte(value))
 	if err != nil {
-		return "", fmt.Errorf("signing property: %w", err)
+		return "", err
 	}
 	return base64.StdEncoding.EncodeToString(sig), nil
 }

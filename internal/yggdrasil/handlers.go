@@ -97,6 +97,9 @@ func (h *Handler) Routes() http.Handler {
 	// Mojang-compatible bulk name-to-UUID lookup.
 	mux.HandleFunc("POST /api/profiles/minecraft", h.handleProfilesBulk)
 
+	// Minecraft 1.19+ signed-chat player certificates.
+	mux.HandleFunc("POST /minecraftservices/player/certificates", h.handlePlayerCertificates)
+
 	return mux
 }
 
@@ -117,6 +120,7 @@ func (h *Handler) handleMetadata(w http.ResponseWriter, r *http.Request) {
 				Homepage: h.baseURL,
 				Register: h.baseURL + "/login",
 			},
+			EnableProfileKey: true,
 		},
 		SkinDomains:        []string{h.domain},
 		SignaturePublickey: h.keys.PublicKeyPEM(),

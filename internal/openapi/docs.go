@@ -578,6 +578,10 @@ const docTemplate = `{
             },
             "yggdrasil.metaMeta": {
                 "properties": {
+                    "feature.enable_profile_key": {
+                        "description": "EnableProfileKey signals to authlib-injector clients that this server supports\nthe player certificates endpoint (MC 1.19+ signed chat). The dotted JSON key\nis required by the authlib-injector feature flag convention.",
+                        "type": "boolean"
+                    },
                     "implementationName": {
                         "type": "string"
                     },
