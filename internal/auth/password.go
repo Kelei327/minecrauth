@@ -53,6 +53,13 @@ func CheckPassword(hash, plain string) error {
 	return nil
 }
 
+// IsApprovedUser reports whether a stored account is allowed to authenticate.
+// An empty status is treated as approved only for compatibility with older test doubles
+// and callers constructing User values; the SQLite migration assigns approved to old rows.
+func IsApprovedUser(u *store.User) bool {
+	return u != nil && (u.ApprovalStatus == "" || u.ApprovalStatus == store.ApprovalApproved)
+}
+	
 // Authenticator authenticates a management-plane identity by email and credential,
 // returning the matching user on success. The MVP ships PasswordAuthenticator.
 // Future OIDC connectors implement this same interface without touching the Yggdrasil
@@ -101,7 +108,9 @@ func (a *PasswordAuthenticator) Authenticate(ctx context.Context, email, passwor
 	if u.Blocked {
 		return nil, ErrInvalidCredentials
 	}
-
+	if !IsApprovedUser(u) {
+	return nil, ErrInvalidCredentials
+	}
 	if !u.EmailVerified {
 		return nil, ErrEmailNotVerified
 	}
