@@ -116,16 +116,17 @@ func (a *OIDCAuthenticator) Authenticate(ctx context.Context, email, idToken str
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			if a.autoProvision && a.provisioner != nil {
-				provUser, provErr := a.provisioner.CreateProvisionedUser(ctx, email)
-				if provErr != nil {
-					return nil, fmt.Errorf("oidc: auto-provisioning user %q: %w", email, provErr)
-				}
-				return provUser, nil
+			_, provErr := a.provisioner.CreateProvisionedUser(ctx, email)
+			if provErr != nil {
+				return nil, fmt.Errorf("oidc: auto-provisioning user %q: %w", email, provErr)
 			}
+		// The new account was provisioned as pending, so it must not authenticate yet.
 			return nil, ErrInvalidCredentials
 		}
 		return nil, fmt.Errorf("oidc: looking up user: %w", err)
 	}
-
+if u.Blocked || !IsApprovedUser(u) || !u.EmailVerified {
+	return nil, ErrInvalidCredentials
+}
 	return u, nil
 }
