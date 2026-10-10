@@ -59,6 +59,11 @@ type SetBlockedRequest struct {
 	Blocked bool `json:"blocked"`
 }
 
+// SetApprovalRequest defines the account approval state selected by an administrator.
+type SetApprovalRequest struct {
+	Status string `json:"status"`
+}
+
 // CreateInviteRequest defines the JSON body for creating registration invites.
 type CreateInviteRequest struct {
 	TTLSeconds int `json:"ttlSeconds"`
