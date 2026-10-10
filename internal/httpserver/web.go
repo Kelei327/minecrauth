@@ -178,7 +178,7 @@ func (mh *managementHandler) handleWebLoginTOTP(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// load the user and check if blocked
+	// load the user and check status constraints
 	user, err := mh.svc.GetUser(r.Context(), userID)
 	if err != nil {
 		if errors.Is(err, accounts.ErrNotFound) {
@@ -190,8 +190,8 @@ func (mh *managementHandler) handleWebLoginTOTP(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if user.Blocked {
-		writeErrorJSON(w, http.StatusUnauthorized, "Unauthorized", "user account is blocked")
+	if user.Blocked || !user.EmailVerified || !auth.IsApprovedUser(user) {
+		writeErrorJSON(w, http.StatusUnauthorized, "Unauthorized", "invalid session")
 		return
 	}
 
@@ -263,7 +263,7 @@ func (mh *managementHandler) handleWebSession(w http.ResponseWriter, r *http.Req
 		writeErrorJSON(w, http.StatusUnauthorized, "Unauthorized", "invalid session")
 		return
 	}
-	if user.Blocked {
+	if user.Blocked || !user.EmailVerified || !auth.IsApprovedUser(user) {
 		_ = mh.sessions.Revoke(r.Context(), sess.Token)
 		mh.clearSessionCookie(w)
 		writeErrorJSON(w, http.StatusUnauthorized, "Unauthorized", "invalid session")
