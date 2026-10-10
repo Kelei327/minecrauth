@@ -38,7 +38,11 @@ var (
 	ErrInvalidTOTP        = errors.New("invalid or expired authentication code")
 	ErrTOTPNotPending     = errors.New("TOTP setup is not pending for this user")
 	ErrTOTPNotEnabled     = errors.New("TOTP is not enabled for this user")
+	ErrInvalidApprovalStatus = errors.New("invalid account approval status")
+	ErrInvalidInviteTTL      = errors.New("invite TTL must be between 1 second and 7 days")
 )
+
+const maxInviteTTL = 7 * 24 * time.Hour
 
 // Policy defines validation and generation rules for the accounts service.
 type Policy struct {
@@ -66,7 +70,7 @@ func NewService(st store.Store, p Policy) *Service {
 
 // Register registers a new physical user self-service.
 // The username is the user's email address.
-func (s *Service) Register(ctx context.Context, email, password, inviteCode string) (*store.User, error) {
+func (s *Service) ctx context.Context, email, password, inviteCode string) (*store.User, error) {
 	if email == "" {
 		return nil, fmt.Errorf("email is required")
 	}
@@ -104,6 +108,7 @@ func (s *Service) Register(ctx context.Context, email, password, inviteCode stri
 		Email:             email,
 		PasswordHash:      hashed,
 		IsAdmin:           false,
+		ApprovalStatus: store.ApprovalPending,
 		EmailVerified:     s.policy.RequireInvite || !s.policy.RequireEmailVerification,
 		PreferredLanguage: "en",
 		CreatedAt:         time.Now(),
@@ -281,6 +286,31 @@ func (s *Service) SetBlocked(ctx context.Context, id string, blocked bool) error
 	return nil
 }
 
+// SetApprovalStatus changes a user's moderation state. An administrator account cannot
+// be moved out of approved state, preventing an accidental lockout of the control plane.
+func (s *Service) SetApprovalStatus(ctx context.Context, id, status string) error {
+	if !store.IsValidApprovalStatus(status) {
+		return ErrInvalidApprovalStatus
+	}
+	u, err := s.store.GetUserByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("getting user for approval update: %w", err)
+	}
+	if u.IsAdmin && status != store.ApprovalApproved {
+		return ErrInvalidApprovalStatus
+	}
+
+	u.ApprovalStatus = status
+	u.UpdatedAt = time.Now()
+	if err := s.store.UpdateUser(ctx, u); err != nil {
+		return fmt.Errorf("updating approval status: %w", err)
+	}
+	return nil
+}
+
 // SetAdmin sets the admin flag for a user.
 func (s *Service) SetAdmin(ctx context.Context, id string, isAdmin bool) error {
 	u, err := s.store.GetUserByID(ctx, id)
@@ -301,12 +331,27 @@ func (s *Service) SetAdmin(ctx context.Context, id string, isAdmin bool) error {
 }
 
 // AdminCreateUser is a privileged path to create users bypassing invite requirements.
+// Admin-created users are approved immediately so bootstrap administrators remain usable.
 func (s *Service) AdminCreateUser(ctx context.Context, email, password string, isAdmin bool) (*store.User, error) {
+	return s.createUser(ctx, email, password, isAdmin, store.ApprovalApproved)
+}
+
+// CreateProvisionedPendingUser creates a non-admin OIDC account that must be approved
+// by an administrator before it can be used. The password should be random/unusable.
+func (s *Service) CreateProvisionedPendingUser(ctx context.Context, email, password string) (*store.User, error) {
+	return s.createUser(ctx, email, password, false, store.ApprovalPending)
+}
+
+// createUser centralizes creation so all trusted creation paths set approval state explicitly.
+func (s *Service) createUser(ctx context.Context, email, password string, isAdmin bool, status string) (*store.User, error) {
 	if email == "" {
 		return nil, fmt.Errorf("email is required")
 	}
 	if len(password) < s.policy.MinPasswordLength {
 		return nil, ErrWeakPassword
+	}
+	if !store.IsValidApprovalStatus(status) {
+		return nil, ErrInvalidApprovalStatus
 	}
 
 	hashed, err := auth.HashPassword(password)
@@ -314,24 +359,24 @@ func (s *Service) AdminCreateUser(ctx context.Context, email, password string, i
 		return nil, fmt.Errorf("hashing password: %w", err)
 	}
 
+	now := time.Now()
 	u := &store.User{
 		ID:                uuid.NewString(),
 		Email:             email,
 		PasswordHash:      hashed,
 		IsAdmin:           isAdmin,
+		ApprovalStatus:    status,
 		EmailVerified:     true,
 		PreferredLanguage: "en",
-		CreatedAt:         time.Now(),
-		UpdatedAt:         time.Now(),
+		CreatedAt:         now,
+		UpdatedAt:         now,
 	}
-
 	if err := s.store.CreateUser(ctx, u); err != nil {
 		if errors.Is(err, store.ErrConflict) {
 			return nil, ErrEmailTaken
 		}
-		return nil, fmt.Errorf("admin creating user: %w", err)
+		return nil, fmt.Errorf("creating user: %w", err)
 	}
-
 	return u, nil
 }
 
@@ -659,11 +704,11 @@ func (s *Service) CreateInvite(ctx context.Context, adminUserID string, ttl time
 		return nil, fmt.Errorf("generating invite code: %w", err)
 	}
 
-	var expiresAt *time.Time
-	if ttl > 0 {
-		t := time.Now().Add(ttl)
-		expiresAt = &t
+	if ttl <= 0 || ttl > maxInviteTTL {
+		return nil, ErrInvalidInviteTTL
 	}
+	expires := time.Now().Add(ttl)
+	expiresAt := &expires
 
 	inv := &store.Invite{
 		Code:      code,
