@@ -373,8 +373,8 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-
-	if err := h.tokens.Validate(ctx, req.AccessToken, ""); err != nil {
+	tok, err := h.tokens.Lookup(ctx, req.AccessToken)
+	if err != nil {
 		writeYggError(w, http.StatusForbidden, "ForbiddenOperationException", "Invalid token.", "")
 		return
 	}
@@ -387,6 +387,15 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// SECURITY: a valid token is not enough. The token must be bound to this exact
+	// player and the player must belong to the user who owns that token.
+	if tok.PlayerID == nil || *tok.PlayerID != player.ID || tok.UserID != player.UserID {
+		writeYggError(w, http.StatusForbidden, "ForbiddenOperationException", "Invalid token or profile.", "")
+		return
+	}
+
+	// Lookup already checks the token owner's current account state. Keep a local
+	// ownership check above before writing anything into the server join cache.
 	h.cache.set(req.ServerID, player.Name, player.UUID)
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -395,13 +404,6 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request) {
 //
 // Local path: looks up the pending join by serverId; if the stored player name matches
 // the username query parameter, returns the full signed profile.
-//
-// Mixed-auth path (fallback configured): if the local join cache has no matching entry,
-// each configured fallback server (with EnableAuthentication=true) is queried in order.
-// The first 200 response wins. DenyUnknownUsers on a fallback server acts as a
-// whitelist: the profile is returned only when a local player with that username also
-// exists on this instance. Without DenyUnknownUsers any player authenticated by that
-// fallback may join.
 //
 // Returns 204 (empty body) on any failure, which is how vanilla signals "not joined".
 // @Summary      Has joined server
@@ -434,40 +436,20 @@ func (h *Handler) handleHasJoined(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+
+		user, userErr := h.accounts.GetUser(ctx, player.UserID)
+		if userErr != nil || user.Blocked || !user.EmailVerified || !auth.IsApprovedUser(user) {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
 		h.writeLocalProfile(ctx, w, player, true)
 		return
 	}
 
-	// Mixed-auth path: query fallback servers when local lookup failed.
-	if h.fallback != nil {
-		ip := r.URL.Query().Get("ip")
-		fbProfile, srvIdx, err := h.fallback.HasJoined(ctx, username, serverID, ip)
-		if err != nil {
-			slog.Error("hasJoined: querying fallback servers", "error", err)
-		}
-		if fbProfile != nil {
-			srv := h.fallback.ServerAt(srvIdx)
-			if srv.DenyUnknownUsers {
-				// Whitelist mode: only allow if a local player exists with this name.
-				// This lets operators use a fallback (e.g. Mojang) for authentication
-				// while still controlling who may join via their local player registry.
-				_, localErr := h.accounts.GetPlayerByName(ctx, username)
-				if localErr != nil {
-					// No local player with this name -> deny (204 = not joined).
-					w.WriteHeader(http.StatusNoContent)
-					return
-				}
-			}
-			// Return the fallback's profile verbatim (signed by the fallback's key).
-			writeJSON(w, http.StatusOK, rawFullProfile{
-				ID:         fbProfile.ID,
-				Name:       fbProfile.Name,
-				Properties: fbProfile.Properties,
-			})
-			return
-		}
-	}
-
+	// Private deployment: upstream fallback servers may provide profile/skin data,
+	// but must never act as an alternate login authority. Only a valid local join-cache
+	// entry above can produce a successful hasJoined response.
 	w.WriteHeader(http.StatusNoContent)
 }
 
