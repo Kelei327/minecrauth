@@ -183,6 +183,10 @@ var migrations = []string{
 		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 	 );
 	 CREATE INDEX idx_totp_recovery_user ON totp_recovery_codes(user_id);`,
+
+	// Migration 13: Add account approval state.
+	// Existing users are approved for backward compatibility; registrations explicitly set pending.
+	`ALTER TABLE users ADD COLUMN approval_status TEXT NOT NULL DEFAULT 'approved';`,
 }
 
 // Migrate runs schema migrations sequentially in transactions.
