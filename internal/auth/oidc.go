@@ -90,43 +90,58 @@ type oidcClaims struct {
 //
 // Any verification failure returns ErrInvalidCredentials. Real infrastructure
 // errors (e.g. store failures) are propagated wrapped.
-func (a *OIDCAuthenticator) Authenticate(ctx context.Context, email, idToken string) (*store.User, error) {
-	tok, err := a.verifier.Verify(ctx, idToken)
-	if err != nil {
-		return nil, ErrInvalidCredentials
-	}
+// Authenticate verifies an OIDC token and checks the local account state.
+// Newly provisioned accounts remain pending and cannot authenticate until approved.
+func (a *OIDCAuthenticator) Authenticate(
+    ctx context.Context,
+    email, idToken string,
+) (*store.User, error) {
+    tok, err := a.verifier.Verify(ctx, idToken)
+    if err != nil {
+        return nil, ErrInvalidCredentials
+    }
 
-	var claims oidcClaims
-	if err := tok.Claims(&claims); err != nil {
-		return nil, ErrInvalidCredentials
-	}
+    var claims oidcClaims
+    if err := tok.Claims(&claims); err != nil {
+        return nil, ErrInvalidCredentials
+    }
 
-	// Reject tokens whose email has not been verified by the IdP.
-	if claims.EmailVerified != nil && !*claims.EmailVerified {
-		return nil, ErrInvalidCredentials
-	}
+    if claims.EmailVerified != nil && !*claims.EmailVerified {
+        return nil, ErrInvalidCredentials
+    }
 
-	// The token's email claim must match the identity the caller presented.
-	if !strings.EqualFold(claims.Email, email) {
-		return nil, ErrInvalidCredentials
-	}
+    if !strings.EqualFold(claims.Email, email) {
+        return nil, ErrInvalidCredentials
+    }
 
-	// Look up the local user by the verified email.
-	u, err := a.store.GetUserByEmail(ctx, email)
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			if a.autoProvision && a.provisioner != nil {
-			_, provErr := a.provisioner.CreateProvisionedUser(ctx, email)
-			if provErr != nil {
-				return nil, fmt.Errorf("oidc: auto-provisioning user %q: %w", email, provErr)
-			}
-		// The new account was provisioned as pending, so it must not authenticate yet.
-			return nil, ErrInvalidCredentials
-		}
-		return nil, fmt.Errorf("oidc: looking up user: %w", err)
-	}
-if u.Blocked || !IsApprovedUser(u) || !u.EmailVerified {
-	return nil, ErrInvalidCredentials
-}
-	return u, nil
+    u, err := a.store.GetUserByEmail(ctx, email)
+    if err != nil {
+        // Database failures must not be treated as missing users.
+        if !errors.Is(err, store.ErrNotFound) {
+            return nil, fmt.Errorf("oidc: looking up user: %w", err)
+        }
+
+        // Auto-provisioning creates a pending account; it does not grant
+        // access during the same login attempt.
+        if a.autoProvision && a.provisioner != nil {
+            if _, provErr := a.provisioner.CreateProvisionedUser(
+                ctx, email,
+            ); provErr != nil {
+                return nil, fmt.Errorf(
+                    "oidc: auto-provisioning user %q: %w",
+                    email,
+                    provErr,
+                )
+            }
+        }
+
+        return nil, ErrInvalidCredentials
+    }
+
+    // Fail closed for blocked, unverified, or unapproved accounts.
+    if u.Blocked || !IsApprovedUser(u) || !u.EmailVerified {
+        return nil, ErrInvalidCredentials
+    }
+
+    return u, nil
 }
