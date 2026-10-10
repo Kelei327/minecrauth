@@ -311,7 +311,7 @@ type oidcProvisioner struct {
 // unusable password for an OIDC identity not yet known locally. The user can only
 // log in via OIDC; direct password login is not possible with the random password.
 func (p *oidcProvisioner) CreateProvisionedUser(ctx context.Context, email string) (*store.User, error) {
-	u, err := p.svc.AdminCreateUser(ctx, email, generateBootstrapPassword(), false /* isAdmin */)
+	u, err := p.svc.CreateProvisionedPendingUser(ctx, email, generateBootstrapPassword())
 	if err != nil {
 		return nil, err
 	}
@@ -354,6 +354,15 @@ func ensureDefaultAdmins(ctx context.Context, svc *accounts.Service, st store.St
 		} else {
 			slog.Debug("default admin already configured", "email", email)
 		}
+		// A configured bootstrap admin must never remain stuck in a non-approved state.
+		// This only applies to explicit operator-configured default_admins addresses.
+		if u.ApprovalStatus != store.ApprovalApproved {
+ 		   	if approvalErr := svc.SetApprovalStatus(ctx, u.ID, store.ApprovalApproved); approvalErr != nil {
+      	 		slog.Error("ensureDefaultAdmins: approving configured administrator", "email", email, "error", approvalErr)
+     	   		continue
+    }
+    slog.Info("approved configured default administrator", "email", email)
+}
 	}
 }
 
