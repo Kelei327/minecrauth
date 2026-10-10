@@ -37,6 +37,16 @@ func NewTokenService(st store.Store, ttl time.Duration, clock func() time.Time) 
 	return &TokenService{store: st, ttl: ttl, clock: clock}
 }
 
+// ensureOwnerAllowed denies token use when its owner is missing, blocked, unverified,
+// or not approved. A failed lookup is fail-closed: the token cannot be used.
+func (s *TokenService) ensureOwnerAllowed(ctx context.Context, userID string) error {
+	u, err := s.store.GetUserByID(ctx, userID)
+	if err != nil || u.Blocked || !u.EmailVerified || !IsApprovedUser(u) {
+		return ErrTokenInvalid
+	}
+	return nil
+}
+
 // generateToken returns a cryptographically random opaque string of tokenBytes bytes
 // encoded as base64 URL-safe without padding. Suitable for both accessToken and clientToken.
 func generateToken() (string, error) {
@@ -51,6 +61,10 @@ func generateToken() (string, error) {
 // If clientToken is empty, one is generated. ExpiresAt is derived from the service TTL;
 // a nil ExpiresAt means the token never expires (TTL == 0).
 func (s *TokenService) Issue(ctx context.Context, userID string, playerID *string, clientToken string) (*store.YggdrasilToken, error) {
+	if err := s.ensureOwnerAllowed(ctx, userID); err != nil {
+		return nil, err
+	}
+
 	accessToken, err := generateToken()
 	if err != nil {
 		return nil, fmt.Errorf("issue: generating access token: %w", err)
@@ -104,6 +118,10 @@ func (s *TokenService) Validate(ctx context.Context, accessToken, clientToken st
 		return ErrTokenExpired
 	}
 
+	if err := s.ensureOwnerAllowed(ctx, tok.UserID); err != nil {
+		return ErrTokenInvalid
+	}
+
 	return nil
 }
 
@@ -117,6 +135,9 @@ func (s *TokenService) Lookup(ctx context.Context, accessToken string) (*store.Y
 	}
 	if tok.ExpiresAt != nil && !s.clock().Before(*tok.ExpiresAt) {
 		return nil, ErrTokenExpired
+	}
+	if err := s.ensureOwnerAllowed(ctx, tok.UserID); err != nil {
+		return nil, ErrTokenInvalid
 	}
 	return tok, nil
 }
@@ -143,6 +164,10 @@ func (s *TokenService) Refresh(ctx context.Context, accessToken, clientToken str
 
 	if tok.ExpiresAt != nil && !s.clock().Before(*tok.ExpiresAt) {
 		return nil, ErrTokenExpired
+	}
+
+	if err := s.ensureOwnerAllowed(ctx, tok.UserID); err != nil {
+		return nil, ErrTokenInvalid
 	}
 
 	// Default: preserve whatever profile the token already had.
