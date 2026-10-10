@@ -70,7 +70,7 @@ func NewService(st store.Store, p Policy) *Service {
 
 // Register registers a new physical user self-service.
 // The username is the user's email address.
-func (s *Service) ctx context.Context, email, password, inviteCode string) (*store.User, error) {
+func (s *Service) Register(ctx context.Context, email, password, inviteCode string) (*store.User, error) {
 	if email == "" {
 		return nil, fmt.Errorf("email is required")
 	}
