@@ -165,6 +165,7 @@ func (mh *managementHandler) buildAdminMux() http.Handler {
 	mux.HandleFunc("DELETE /users/{id}", mh.handleAdminDeleteUser)
 	mux.HandleFunc("PUT /users/{id}/admin", mh.handleAdminSetAdmin)
 	mux.HandleFunc("PUT /users/{id}/blocked", mh.handleAdminSetBlocked)
+	mux.HandleFunc("PUT /users/{id}/approval", mh.handleAdminSetApproval)
 	mux.HandleFunc("POST /users/{id}/impersonate", mh.handleAdminImpersonate)
 	mux.HandleFunc("POST /users/{id}/reset-token", mh.handleAdminCreateResetToken)
 
@@ -875,6 +876,20 @@ func (mh *managementHandler) handleListUsers(w http.ResponseWriter, r *http.Requ
 		writeErrorJSON(w, http.StatusInternalServerError, "InternalError", "internal server error")
 		return
 	}
+	status := r.URL.Query().Get("approval_status")
+	if status != "" && !store.IsValidApprovalStatus(status) {
+		writeErrorJSON(w, http.StatusBadRequest, "BadRequest", "approval_status must be pending, approved, or rejected")
+		return
+	}
+	if status != "" {
+		filtered := make([]*store.User, 0)
+		for _, u := range users {
+			if u.ApprovalStatus == status {
+				filtered = append(filtered, u)
+			}
+		}
+		users = filtered
+	}
 	if users == nil {
 		users = []*store.User{}
 	}
@@ -1058,6 +1073,49 @@ func (mh *managementHandler) handleAdminSetBlocked(w http.ResponseWriter, r *htt
 		if mh.tokens != nil {
 			if err := mh.tokens.InvalidateAllByUser(r.Context(), id); err != nil {
 				slog.Warn("handleAdminSetBlocked: invalidating tokens", "id", id, "error", err)
+			}
+		}
+	}
+
+	user, err := mh.svc.GetUser(r.Context(), id)
+	if err != nil {
+		writeErrorJSON(w, http.StatusInternalServerError, "InternalError", "internal server error")
+		return
+	}
+	writeJSON(w, http.StatusOK, user)
+}
+
+// handleAdminSetApproval changes an account's moderation state. Any non-approved state
+// revokes existing browser sessions and Yggdrasil tokens immediately.
+func (mh *managementHandler) handleAdminSetApproval(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req SetApprovalRequest
+	if !decodeRequest(w, r, &req) {
+		return
+	}
+
+	if err := mh.svc.SetApprovalStatus(r.Context(), id, req.Status); err != nil {
+		switch {
+		case errors.Is(err, accounts.ErrNotFound):
+			writeErrorJSON(w, http.StatusNotFound, "NotFound", "user not found")
+		case errors.Is(err, accounts.ErrInvalidApprovalStatus):
+			writeErrorJSON(w, http.StatusBadRequest, "BadRequest", "invalid approval status or administrator state change")
+		default:
+			slog.Error("handleAdminSetApproval: updating approval status", "id", id, "status", req.Status, "error", err)
+			writeErrorJSON(w, http.StatusInternalServerError, "InternalError", "internal server error")
+		}
+		return
+	}
+
+	if req.Status != store.ApprovalApproved {
+		if mh.sessions != nil {
+			if err := mh.sessions.RevokeAllByUser(r.Context(), id); err != nil {
+				slog.Warn("handleAdminSetApproval: revoking sessions", "id", id, "error", err)
+			}
+		}
+		if mh.tokens != nil {
+			if err := mh.tokens.InvalidateAllByUser(r.Context(), id); err != nil {
+				slog.Warn("handleAdminSetApproval: revoking tokens", "id", id, "error", err)
 			}
 		}
 	}
@@ -1707,13 +1765,21 @@ func (mh *managementHandler) handleCreateInvite(w http.ResponseWriter, r *http.R
 	adminUser, _ := userFromContext(r.Context())
 
 	var req CreateInviteRequest
-	// Body is optional for invite creation; ignore decode errors gracefully.
-	_ = json.NewDecoder(r.Body).Decode(&req)
-
-	var ttl time.Duration
-	if req.TTLSeconds > 0 {
-		ttl = time.Duration(req.TTLSeconds) * time.Second
+	// An omitted/zero TTL means the safe default (7 days), never a permanent invite.
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		writeErrorJSON(w, http.StatusBadRequest, "BadRequest", "malformed invite settings")
+		return
 	}
+
+	const maxInviteTTLSeconds = int((7 * 24 * time.Hour) / time.Second)
+	if req.TTLSeconds == 0 {
+		req.TTLSeconds = maxInviteTTLSeconds
+	}
+	if req.TTLSeconds < 1 || req.TTLSeconds > maxInviteTTLSeconds {
+		writeErrorJSON(w, http.StatusBadRequest, "BadRequest", "ttlSeconds must be between 1 and 604800")
+		return
+	}
+	ttl := time.Duration(req.TTLSeconds) * time.Second
 
 	inv, err := mh.svc.CreateInvite(r.Context(), adminUser.ID, ttl)
 	if err != nil {
