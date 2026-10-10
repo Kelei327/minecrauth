@@ -26,6 +26,7 @@ type User struct {
 	IsAdmin           bool      `json:"is_admin"`
 	Blocked           bool      `json:"blocked"`
 	EmailVerified     bool      `json:"email_verified"`
+	ApprovalStatus string `json:"approval_status"` // pending / approved / rejected
 	PreferredLanguage string    `json:"preferred_language"`
 	TOTPSecret        string    `json:"-"`            // base32 TOTP secret; empty when 2FA is off
 	TOTPEnabled       bool      `json:"totp_enabled"` // true once confirmed; exposed to the UI
@@ -38,6 +39,17 @@ const (
 	AuthTokenEmailVerify   = "email_verify"
 	AuthTokenTOTPPending   = "totp_pending"
 )
+
+const (
+	ApprovalPending  = "pending"
+	ApprovalApproved = "approved"
+	ApprovalRejected = "rejected"
+)
+
+// IsValidApprovalStatus reports whether status is a supported moderation state.
+func IsValidApprovalStatus(status string) bool {
+	return status == ApprovalPending || status == ApprovalApproved || status == ApprovalRejected
+}
 
 // AuthToken is a single-use, hashed token for out-of-band flows (password reset,
 // email verification). The plaintext token is delivered to the user via a link;
