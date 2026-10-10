@@ -56,7 +56,9 @@ func (a *GameAuthenticator) Authenticate(ctx context.Context, email, password st
 	if u.Blocked {
 		return nil, ErrInvalidCredentials
 	}
-
+	if !IsApprovedUser(u) {
+		return nil, ErrInvalidCredentials
+	}
 	if !u.EmailVerified {
 		return nil, ErrEmailNotVerified
 	}
