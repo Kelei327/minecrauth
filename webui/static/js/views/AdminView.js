@@ -17,6 +17,10 @@ export const AdminView = {
         const users = ref([]);
         const loading = ref(true);
 
+        // Applications state
+        const pendingUsers = ref([]);
+        const applicationsLoading = ref(false);
+
         // Create user form state
         const email = ref('');
         const password = ref('');
@@ -69,6 +73,30 @@ export const AdminView = {
             }
         };
 
+        const loadPendingUsers = async () => {
+            applicationsLoading.value = true;
+            try {
+                const data = await api.get('/admin/users?approval_status=pending');
+                pendingUsers.value = data || [];
+            } catch (err) {
+                console.error(err);
+                addToast('Failed to load applications: ' + err.message, 'danger');
+            } finally {
+                applicationsLoading.value = false;
+            }
+        };
+
+        const handleSetApproval = async (user, status) => {
+            try {
+                await api.put(`/admin/users/${user.id}/approval`, { status });
+                addToast(status === 'approved' ? 'Application approved' : 'Application rejected', 'success');
+                await Promise.all([loadUsers(), loadPendingUsers()]);
+            } catch (err) {
+                console.error(err);
+                addToast('Failed to update application: ' + err.message, 'danger');
+            }
+        };
+
         const loadInvites = async () => {
             try {
                 const data = await api.get('/admin/invites');
@@ -81,6 +109,7 @@ export const AdminView = {
 
         const setTab = (tab) => {
             activeTab.value = tab;
+            if (tab === 'applications') loadPendingUsers();
         };
 
         const downloadBackup = async () => {
@@ -162,9 +191,12 @@ export const AdminView = {
         const handleCreateInvite = async () => {
             creatingInvite.value = true;
             try {
-                // The form holds a TTL in hours; the API expects seconds (0 = never expires).
-                const hours = parseInt(inviteTTL.value, 10);
-                const ttlSeconds = Number.isFinite(hours) && hours > 0 ? hours * 3600 : 0;
+                const hours = Number.parseInt(inviteTTL.value, 10);
+                if (!Number.isInteger(hours) || hours < 1 || hours > 168) {
+                    addToast('Invite lifetime must be between 1 and 168 hours.', 'danger');
+                    return;
+                }
+                const ttlSeconds = hours * 3600;
                 const inv = await api.post('/admin/invites', { ttlSeconds });
                 addToast('Invite created', 'success');
                 if (inv && inv.code) {
@@ -179,7 +211,7 @@ export const AdminView = {
             }
         };
 
-        const inviteLink = (code) => `${window.location.origin}/login?invite=${encodeURIComponent(code)}`;
+        const inviteLink = (code) => `${window.location.origin}/login#invite=${encodeURIComponent(code)}`;
 
         const copyInviteLink = (code) => {
             const link = inviteLink(code);
@@ -345,6 +377,7 @@ export const AdminView = {
         const tabTitle = computed(() => {
             if (activeTab.value === 'invites') return 'Invitations';
             if (activeTab.value === 'backup') return 'Backup & Restore';
+            if (activeTab.value === 'applications') return 'Applications';
             return 'User Management';
         });
         const tabSubtitle = computed(() => {
@@ -353,6 +386,9 @@ export const AdminView = {
             }
             if (activeTab.value === 'backup') {
                 return 'Download a full snapshot of the server state, or restore one.';
+            }
+            if (activeTab.value === 'applications') {
+                return 'Review new account requests before granting access to the server.';
             }
             return 'Monitor system accounts, adjust roles, enforce restrictions, and impersonate sessions.';
         });
@@ -395,6 +431,10 @@ export const AdminView = {
         return {
             users,
             loading,
+            pendingUsers,
+            applicationsLoading,
+            loadPendingUsers,
+            handleSetApproval,
             email,
             password,
             isAdmin,
@@ -453,6 +493,7 @@ export const AdminView = {
             <!-- Tab Bar -->
             <div class="flex gap-2 mb-4" role="tablist">
                 <button class="btn font-mono" :class="{ active: activeTab === 'users' }" :style="activeTab === 'users' ? 'color: var(--gold);' : ''" @click="setTab('users')">Users</button>
+                <button class="btn font-mono" :class="{ active: activeTab === 'applications' }" :style="activeTab === 'applications' ? 'color: var(--gold);' : ''" @click="setTab('applications')">Applications ({{ pendingUsers.length }})</button>
                 <button class="btn font-mono" :class="{ active: activeTab === 'invites' }" :style="activeTab === 'invites' ? 'color: var(--gold);' : ''" @click="setTab('invites')">Invites</button>
                 <button class="btn font-mono" :class="{ active: activeTab === 'backup' }" :style="activeTab === 'backup' ? 'color: var(--gold);' : ''" @click="setTab('backup')">Backup</button>
             </div>
@@ -539,7 +580,10 @@ export const AdminView = {
                                             <div class="flex gap-1" style="flex-wrap: wrap;">
                                                 <span v-if="u.is_admin" class="badge badge-admin">Admin</span>
                                                 <span v-if="u.blocked" class="badge badge-blocked">Blocked</span>
-                                                <span v-if="!u.is_admin && !u.blocked" class="badge badge-active">Normal</span>
+                                                <span v-if="u.approval_status === 'pending'" class="badge badge-blocked">Pending</span>
+                                                <span v-else-if="u.approval_status === 'rejected'" class="badge badge-blocked">Rejected</span>
+                                                <span v-else-if="u.approval_status === 'approved'" class="badge badge-active">Approved</span>
+                                                <span v-if="!u.is_admin && !u.blocked && (!u.approval_status || u.approval_status === 'approved')" class="badge badge-active">Normal</span>
                                             </div>
                                         </td>
                                         <td class="font-mono text-muted" style="font-size: 0.8rem;">
@@ -618,6 +662,48 @@ export const AdminView = {
                 </div>
             </div>
 
+            <!-- Applications Tab -->
+            <div v-show="activeTab === 'applications'" class="flex-col gap-3">
+                <div v-if="applicationsLoading" class="panel text-center">
+                    <span class="font-mono">Loading applications...</span>
+                </div>
+                <div v-else-if="pendingUsers.length === 0" class="panel font-mono muted-text">
+                    No pending applications.
+                </div>
+                <div v-else class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Email Address</th>
+                                <th>Submitted</th>
+                                <th class="text-right">Decision</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="u in pendingUsers" :key="u.id">
+                                <td>
+                                    <div class="font-mono" style="font-weight: bold;">{{ u.email }}</div>
+                                    <div class="muted-text" style="font-size: 0.75rem;">ID: {{ u.id }}</div>
+                                </td>
+                                <td class="font-mono text-muted" style="font-size: 0.8rem;">
+                                    {{ formatDate(u.created_at) }}
+                                </td>
+                                <td>
+                                    <div class="flex gap-2" style="justify-content: flex-end; flex-wrap: wrap;">
+                                        <button class="btn btn-primary font-mono"
+                                                style="padding: 2px 8px; font-size: 0.75rem;"
+                                                @click="handleSetApproval(u, 'approved')">Approve</button>
+                                        <button class="btn btn-danger font-mono"
+                                                style="padding: 2px 8px; font-size: 0.75rem;"
+                                                @click="handleSetApproval(u, 'rejected')">Reject</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Invites Tab -->
             <div v-show="activeTab === 'invites'" class="grid grid-cols-2 gap-4">
                 <!-- Create Invite Panel -->
@@ -628,8 +714,8 @@ export const AdminView = {
 
                         <div class="flex items-center gap-3" style="flex-wrap: wrap;">
                             <div class="form-group" style="margin-bottom: 0;">
-                                <label for="inviteTTL">Expires in (hours, 0 = never)</label>
-                                <input id="inviteTTL" type="number" min="0" v-model="inviteTTL" class="input font-mono" style="max-width: 160px;" />
+                                <label for="inviteTTL">Expires in (hours, max 168)</label>
+                                <input id="inviteTTL" type="number" min="1" max="168" v-model="inviteTTL" class="input font-mono" style="max-width: 160px;" />
                             </div>
                             <button class="btn btn-primary font-mono" style="align-self: flex-end;" :disabled="creatingInvite" @click="handleCreateInvite">
                                 {{ creatingInvite ? 'Generating...' : 'Generate Invite' }}
