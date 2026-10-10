@@ -319,13 +319,12 @@ func sessionOrBasicAuth(
 					writeErrorJSON(w, http.StatusUnauthorized, "Unauthorized", "invalid session")
 					return
 				}
-				if user.Blocked {
-					_ = sessions.Revoke(r.Context(), sess.Token)
-					clearSessionCookie(w)
-					writeErrorJSON(w, http.StatusUnauthorized, "Unauthorized", "invalid session")
-					return
-				}
-
+				if user.Blocked || !user.EmailVerified || !auth.IsApprovedUser(user) {
+						_ = sessions.Revoke(r.Context(), sess.Token)
+						clearSessionCookie(w)
+						writeErrorJSON(w, http.StatusUnauthorized, "Unauthorized", "invalid session")
+						return
+					}
 				// CSRF check for mutating methods.
 				if isMutating(r.Method) {
 					provided := r.Header.Get("X-CSRF-Token")
