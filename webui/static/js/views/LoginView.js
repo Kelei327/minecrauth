@@ -111,6 +111,13 @@ export const LoginView = {
                     password: password.value,
                     inviteCode: inviteCode.value.trim()
                 });
+                if (user && user.approval_status === 'pending') {
+                    addToast('Application submitted. An administrator must approve your account before you can sign in.', 'success');
+                    mode.value = 'login';
+                    password.value = '';
+                    inviteCode.value = '';
+                    return;
+                }
                 if (user && user.email_verified === false) {
                     addToast('Account created. Check your email to verify your address before you can sign in.', 'success');
                     mode.value = 'login';
@@ -186,15 +193,25 @@ export const LoginView = {
         };
 
         onMounted(() => {
-            const params = new URLSearchParams(window.location.search);
-            if (params.get('error') === 'oidc') {
+            const currentURL = new URL(window.location.href);
+            if (currentURL.searchParams.get('error') === 'oidc') {
                 addToast('Single Sign-On (OIDC) authentication failed.', 'danger');
             }
-            // An invite link lands here with ?invite=CODE; open registration with it filled in.
-            const invite = params.get('invite');
+
+            // Fragments are not sent to the HTTP server, keeping invite tokens out of proxy access logs.
+            const fragmentParams = new URLSearchParams(currentURL.hash.replace(/^#/, ''));
+            let invite = fragmentParams.get('invite');
+
+            // Compatibility: accept old ?invite= links once, then immediately remove the invite from the URL.
+            if (!invite) {
+                invite = currentURL.searchParams.get('invite');
+            }
             if (invite) {
                 inviteCode.value = invite;
                 mode.value = 'register';
+                currentURL.hash = '';
+                currentURL.searchParams.delete('invite');
+                window.history.replaceState({}, '', currentURL.pathname + currentURL.search);
             }
         });
 
@@ -314,7 +331,7 @@ export const LoginView = {
 
                 <!-- Mode toggle -->
                 <div v-if="!totpRequired" class="mt-4 text-center">
-                    <a v-if="mode === 'login'" href="#" class="nav-link" @click.prevent="switchMode('register')">Need an account? Register</a>
+                    <a v-if="mode === 'login' && store.config && (!store.config.requireInvite || inviteCode)" href="#" class="nav-link" @click.prevent="switchMode('register')">Need an account? Register</a>
                     <a v-else-if="mode === 'register'" href="#" class="nav-link" @click.prevent="switchMode('login')">Already have an account? Sign in</a>
                     <div v-if="mode === 'login' && store.config && store.config.smtpEnabled" class="mt-2">
                         <a href="#" class="nav-link" @click.prevent="switchMode('forgot')">Forgot password?</a>
