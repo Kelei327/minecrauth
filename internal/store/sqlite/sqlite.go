@@ -260,9 +260,15 @@ func mapError(err error) error {
 
 // CreateUser inserts a new user record.
 func (s *Store) CreateUser(ctx context.Context, u *store.User) error {
-	query := `INSERT INTO users (id, email, password_hash, game_password_hash, is_admin, blocked, email_verified, preferred_language, totp_secret, totp_enabled, created_at, updated_at)
-	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	_, err := s.db.ExecContext(ctx, query, u.ID, u.Email, u.PasswordHash, u.GamePasswordHash, u.IsAdmin, u.Blocked, u.EmailVerified, u.PreferredLanguage, u.TOTPSecret, u.TOTPEnabled, u.CreatedAt, u.UpdatedAt)
+	if u.ApprovalStatus == "" {
+		u.ApprovalStatus = store.ApprovalApproved
+	}
+	query := `INSERT INTO users (id, email, password_hash, game_password_hash, is_admin, blocked, email_verified, approval_status, preferred_language, totp_secret, totp_enabled, created_at, updated_at)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err := s.db.ExecContext(ctx, query,
+		u.ID, u.Email, u.PasswordHash, u.GamePasswordHash, u.IsAdmin,
+		u.Blocked, u.EmailVerified, u.ApprovalStatus, u.PreferredLanguage,
+		u.TOTPSecret, u.TOTPEnabled, u.CreatedAt, u.UpdatedAt)
 	if err != nil {
 		return mapError(err)
 	}
@@ -271,10 +277,14 @@ func (s *Store) CreateUser(ctx context.Context, u *store.User) error {
 
 // GetUserByID retrieves a user by id.
 func (s *Store) GetUserByID(ctx context.Context, id string) (*store.User, error) {
-	query := `SELECT id, email, password_hash, game_password_hash, is_admin, blocked, email_verified, preferred_language, totp_secret, totp_enabled, created_at, updated_at
+	query := `SELECT id, email, password_hash, game_password_hash, is_admin, blocked, email_verified, approval_status, preferred_language, totp_secret, totp_enabled, created_at, updated_at
 	          FROM users WHERE id = ?`
 	u := &store.User{}
-	err := s.db.QueryRowContext(ctx, query, id).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.GamePasswordHash, &u.IsAdmin, &u.Blocked, &u.EmailVerified, &u.PreferredLanguage, &u.TOTPSecret, &u.TOTPEnabled, &u.CreatedAt, &u.UpdatedAt)
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&u.ID, &u.Email, &u.PasswordHash, &u.GamePasswordHash,
+		&u.IsAdmin, &u.Blocked, &u.EmailVerified, &u.ApprovalStatus,
+		&u.PreferredLanguage, &u.TOTPSecret, &u.TOTPEnabled,
+		&u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -284,10 +294,14 @@ func (s *Store) GetUserByID(ctx context.Context, id string) (*store.User, error)
 
 // GetUserByEmail retrieves a user by email.
 func (s *Store) GetUserByEmail(ctx context.Context, email string) (*store.User, error) {
-	query := `SELECT id, email, password_hash, game_password_hash, is_admin, blocked, email_verified, preferred_language, totp_secret, totp_enabled, created_at, updated_at
+	query := `SELECT id, email, password_hash, game_password_hash, is_admin, blocked, email_verified, approval_status, preferred_language, totp_secret, totp_enabled, created_at, updated_at
 	          FROM users WHERE email = ?`
 	u := &store.User{}
-	err := s.db.QueryRowContext(ctx, query, email).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.GamePasswordHash, &u.IsAdmin, &u.Blocked, &u.EmailVerified, &u.PreferredLanguage, &u.TOTPSecret, &u.TOTPEnabled, &u.CreatedAt, &u.UpdatedAt)
+	err := s.db.QueryRowContext(ctx, query, email).Scan(
+		&u.ID, &u.Email, &u.PasswordHash, &u.GamePasswordHash,
+		&u.IsAdmin, &u.Blocked, &u.EmailVerified, &u.ApprovalStatus,
+		&u.PreferredLanguage, &u.TOTPSecret, &u.TOTPEnabled,
+		&u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -297,9 +311,12 @@ func (s *Store) GetUserByEmail(ctx context.Context, email string) (*store.User, 
 
 // UpdateUser modifies an existing user record.
 func (s *Store) UpdateUser(ctx context.Context, u *store.User) error {
-	query := `UPDATE users SET email = ?, password_hash = ?, game_password_hash = ?, is_admin = ?, blocked = ?, email_verified = ?, preferred_language = ?, totp_secret = ?, totp_enabled = ?, updated_at = ?
+	query := `UPDATE users SET email = ?, password_hash = ?, game_password_hash = ?, is_admin = ?, blocked = ?, email_verified = ?, approval_status = ?, preferred_language = ?, totp_secret = ?, totp_enabled = ?, updated_at = ?
 	          WHERE id = ?`
-	res, err := s.db.ExecContext(ctx, query, u.Email, u.PasswordHash, u.GamePasswordHash, u.IsAdmin, u.Blocked, u.EmailVerified, u.PreferredLanguage, u.TOTPSecret, u.TOTPEnabled, u.UpdatedAt, u.ID)
+	res, err := s.db.ExecContext(ctx, query,
+		u.Email, u.PasswordHash, u.GamePasswordHash, u.IsAdmin,
+		u.Blocked, u.EmailVerified, u.ApprovalStatus, u.PreferredLanguage,
+		u.TOTPSecret, u.TOTPEnabled, u.UpdatedAt, u.ID)
 	if err != nil {
 		return mapError(err)
 	}
@@ -312,6 +329,7 @@ func (s *Store) UpdateUser(ctx context.Context, u *store.User) error {
 	}
 	return nil
 }
+
 
 // DeleteUser deletes a user by id.
 func (s *Store) DeleteUser(ctx context.Context, id string) error {
@@ -332,7 +350,7 @@ func (s *Store) DeleteUser(ctx context.Context, id string) error {
 
 // ListUsers lists all users.
 func (s *Store) ListUsers(ctx context.Context) ([]*store.User, error) {
-	query := `SELECT id, email, password_hash, game_password_hash, is_admin, blocked, email_verified, preferred_language, totp_secret, totp_enabled, created_at, updated_at
+	query := `SELECT id, email, password_hash, game_password_hash, is_admin, blocked, email_verified, approval_status, preferred_language, totp_secret, totp_enabled, created_at, updated_at
 	          FROM users ORDER BY created_at DESC`
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
@@ -343,7 +361,11 @@ func (s *Store) ListUsers(ctx context.Context) ([]*store.User, error) {
 	users := make([]*store.User, 0)
 	for rows.Next() {
 		u := &store.User{}
-		if err := rows.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.GamePasswordHash, &u.IsAdmin, &u.Blocked, &u.EmailVerified, &u.PreferredLanguage, &u.TOTPSecret, &u.TOTPEnabled, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(
+			&u.ID, &u.Email, &u.PasswordHash, &u.GamePasswordHash,
+			&u.IsAdmin, &u.Blocked, &u.EmailVerified, &u.ApprovalStatus,
+			&u.PreferredLanguage, &u.TOTPSecret, &u.TOTPEnabled,
+			&u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan user row: %w", err)
 		}
 		u.GamePasswordSet = u.GamePasswordHash != ""
