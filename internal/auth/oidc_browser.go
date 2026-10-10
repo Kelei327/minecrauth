@@ -90,13 +90,17 @@ func (f *OIDCBrowserFlow) Exchange(ctx context.Context, code, codeVerifier strin
 				if perr != nil {
 					return nil, fmt.Errorf("provisioning user: %w", perr)
 				}
+				// Provisioning intentionally creates a pending account; do not create a browser session.
+				if !IsApprovedUser(u) {
+					return nil, ErrInvalidCredentials
+				}
 				return u, nil
 			}
 			return nil, ErrInvalidCredentials
 		}
 		return nil, fmt.Errorf("looking up user: %w", err)
 	}
-	if user.Blocked {
+	if user.Blocked || !IsApprovedUser(user) || !user.EmailVerified {
 		return nil, ErrInvalidCredentials
 	}
 	return user, nil
